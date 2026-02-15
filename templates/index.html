@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叉车实时监控中心</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f2f5; }
+        h1 { color: #333; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .status-alarm { color: #d9534f; font-weight: bold; }
+        .status-normal { color: #5cb85c; font-weight: bold; }
+        .info-box { margin-bottom: 10px; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>叉车报警实时监控 (MQTT)</h1>
+        <div class="info-box">状态更新频率：每 3 秒 (轮询)</div>
+        
+        <table id="device-table">
+            <thead>
+                <tr>
+                    <th>设备ID</th>
+                    <th>当前状态</th>
+                    <th>驾驶员在位</th>
+                    <th>外部闯入</th>
+                    <th>最后更新时间</th>
+                </tr>
+            </thead>
+            <tbody id="device-list">
+                <!-- 数据将通过 JS 动态填充 -->
+            </tbody>
+        </table>
+
+        <h2 style="margin-top: 40px;">历史数据摘要 (最近50条)</h2>
+        <table id="history-table">
+            <thead>
+                <tr>
+                    <th>设备ID</th>
+                    <th>状态</th>
+                    <th>上报时间</th>
+                </tr>
+            </thead>
+            <tbody id="history-list">
+                <!-- 数据将通过 JS 动态填充 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 引入 JS 文件 -->
+    <script src="/static/main.js"></script>
+</body>
+</html>
