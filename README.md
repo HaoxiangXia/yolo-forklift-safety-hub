@@ -1,6 +1,6 @@
-# 叉车安全告警实时监控系统（YOLO Forklift Safety Hub）
+# 叉车作业人车互斥报警实时监控系统（YOLO Forklift Safety Hub）
 
-一个基于 **Flask + MQTT + SQLite** 的轻量级监控 Demo，用于接收叉车安全相关事件（报警、驾驶员在位、外部闯入），并在网页端实时展示设备状态与历史记录。
+一个基于 **Flask + MQTT + SQLite** 的轻量级监控 Demo，用于接收叉车安全相关事件，并在网页端实时展示设备状态与历史记录。
 
 ## 功能特性
 
@@ -165,11 +165,3 @@ factory/forklift/FORK-001/alarm
 - 支持 WebSocket 推送代替轮询
 - 增加用户登录与权限管理
 - 引入时序数据库与告警通知（短信/钉钉/企业微信）
-
----
-
-如果你希望，我也可以继续帮你补一版：
-
-- Docker / docker-compose 一键启动版
-- 生产部署说明（Gunicorn + Nginx）
-- API 文档（OpenAPI/Swagger）

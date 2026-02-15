@@ -1,3 +1,7 @@
+"""
+MQTT 模拟上报脚本
+"""
+
 import paho.mqtt.client as mqtt
 import json
 import time

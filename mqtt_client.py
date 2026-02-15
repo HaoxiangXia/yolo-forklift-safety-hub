@@ -1,3 +1,7 @@
+"""
+MQTT 订阅客户端，收到消息后写入数据库
+"""
+
 import paho.mqtt.client as mqtt
 import json
 import db

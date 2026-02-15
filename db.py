@@ -1,3 +1,7 @@
+"""
+SQLite 数据访问与表初始化
+"""
+
 import sqlite3
 from datetime import datetime
 

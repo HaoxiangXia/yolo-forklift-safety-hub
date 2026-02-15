@@ -1,3 +1,7 @@
+"""
+Flask 入口，提供页面与 API
+"""
+
 from flask import Flask, jsonify, render_template
 import db
 import mqtt_client
