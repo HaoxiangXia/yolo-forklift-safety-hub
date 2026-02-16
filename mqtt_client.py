@@ -40,21 +40,15 @@ def on_message(client, userdata, msg):
         topic_parts = msg.topic.split('/')
         device_id = topic_parts[2] if len(topic_parts) >= 3 else payload.get("device_id", "unknown")
         
-        # 3. 提取各字段数据
+        # 3. 提取报警状态
         alarm = payload.get("alarm", 0)
-        driver_present = payload.get("driver_present", 0)
-        outer_intrusion = payload.get("outer_intrusion", 0)
-        timestamp = payload.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         
-        # 4. 更新数据库状态 (同时记录报警明细和更新设备在线状态)
-        db.update_device_status(
+        # 4. 更新数据库状态 (处理 boot_time 和 error_count 逻辑)
+        db.update_device_data(
             device_id=device_id,
-            alarm=alarm,
-            timestamp=timestamp,
-            driver_present=driver_present,
-            outer_intrusion=outer_intrusion
+            alarm=alarm
         )
-        print(f"MQTT: Updated status for device {device_id}")
+        print(f"MQTT: Updated data for device {device_id}")
 
         # 5. 通过 WebSocket 主动推送到前端
         if socketio_inst:

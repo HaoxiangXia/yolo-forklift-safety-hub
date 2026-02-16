@@ -1,84 +1,107 @@
 /**
- * 前端实时更新逻辑
- * 使用 Socket.IO 与后端建立长连接
+ * 前端逻辑 - 升级版
+ * 负责 WebSocket 连接、数据更新及运行时间实时刷新
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.querySelector('#device-table tbody');
     const wsStatus = document.querySelector('#ws-status');
+    let devicesData = []; // 存储最新的设备列表
 
     /**
-     * 更新表格内容
-     * @param {Array} devices 设备列表数据
+     * 计算运行时间字符串
+     * @param {string} bootTimeStr 启动时间字符串
+     * @param {number} onlineStatus 0或1
+     * @returns {string}
      */
-    function updateTable(devices) {
-        tableBody.innerHTML = ''; // 清空当前表格
+    function calculateUptime(bootTimeStr, onlineStatus) {
+        if (onlineStatus === 0) return '<span class="status-offline">离线</span>';
+        if (!bootTimeStr) return '-';
+
+        const bootDate = new Date(bootTimeStr);
+        const now = new Date();
+        const diffMs = now - bootDate;
         
-        devices.forEach(device => {
+        if (diffMs < 0) return '0小时0分钟';
+
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+
+        return `${hours}小时${minutes}分钟`;
+    }
+
+    /**
+     * 更新表格 DOM
+     */
+    function renderTable() {
+        tableBody.innerHTML = '';
+        
+        devicesData.forEach(device => {
             const tr = document.createElement('tr');
             
-            // 如果有报警且在线，整行高亮显示
-            if (device.alarm === 1 && device.online_status === 1) {
+            // 报警高亮显示
+            if (device.alarm_status === 1 && device.online_status === 1) {
                 tr.className = 'alarm-active';
             }
 
-            // 格式化数据
-            const alarmText = device.alarm === 1 ? '⚠️ 报警' : '正常';
-            const onlineText = device.online_status === 1 ? '● 在线' : '○ 离线';
-            const onlineClass = device.online_status === 1 ? 'status-online' : 'status-offline';
-            const driverText = device.driver_present === 1 ? '在位' : '空置';
-            const intrusionText = device.outer_intrusion === 1 ? '有侵入' : '无';
+            const alarmText = device.alarm_status === 1 ? '⚠️ 报警' : '正常';
+            const uptime = calculateUptime(device.boot_time, device.online_status);
 
             tr.innerHTML = `
                 <td>${device.device_id}</td>
-                <td class="${device.alarm === 1 ? 'alarm-active' : 'alarm-normal'}">${alarmText}</td>
-                <td class="${onlineClass}">${onlineText}</td>
-                <td>${driverText}</td>
-                <td>${intrusionText}</td>
-                <td class="update-time">${device.last_timestamp || device.last_seen}</td>
+                <td class="${device.alarm_status === 1 ? 'alarm-active' : 'alarm-normal'}">${alarmText}</td>
+                <td>${device.error_count}</td>
+                <td>${uptime}</td>
+                <td class="update-time">${device.update_time}</td>
             `;
             tableBody.appendChild(tr);
         });
     }
 
     /**
-     * 初始加载数据
+     * 定时刷新显示逻辑 (每分钟刷新一次运行时间)
      */
-    async function loadInitialData() {
-        try {
-            const response = await fetch('/api/latest');
-            const data = await response.json();
-            updateTable(data);
-        } catch (error) {
-            console.error('Failed to load initial data:', error);
+    setInterval(() => {
+        if (devicesData.length > 0) {
+            renderTable();
         }
-    }
+    }, 60000);
 
-    // 1. 建立 WebSocket 连接
+    /**
+     * 建立 WebSocket 连接
+     */
     const socket = io();
 
-    // 2. 连接成功回调
     socket.on('connect', () => {
-        console.log('Connected to server via WebSocket');
+        console.log('WebSocket Connected');
         wsStatus.textContent = 'WebSocket: 已连接';
         wsStatus.className = 'ws-connected';
-        // 连接后刷新一次数据，确保同步
-        loadInitialData();
     });
 
-    // 3. 连接断开回调
     socket.on('disconnect', () => {
-        console.log('Disconnected from server');
+        console.log('WebSocket Disconnected');
         wsStatus.textContent = 'WebSocket: 已断开';
         wsStatus.className = 'ws-disconnected';
     });
 
-    // 4. 监听后端推送的 'device_update' 事件
+    // 监听实时数据更新
     socket.on('device_update', (data) => {
         console.log('Received real-time update:', data);
-        updateTable(data);
+        devicesData = data;
+        renderTable();
     });
 
-    // 初始加载一次数据
-    loadInitialData();
+    // 初始加载
+    async function init() {
+        try {
+            const res = await fetch('/api/latest');
+            devicesData = await res.json();
+            renderTable();
+        } catch (e) {
+            console.error('Init error:', e);
+        }
+    }
+
+    init();
 });
