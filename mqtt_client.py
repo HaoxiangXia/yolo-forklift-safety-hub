@@ -52,10 +52,9 @@ def on_message(client, userdata, msg):
 
         # 5. 通过 WebSocket 主动推送到前端
         if socketio_inst:
-            # 获取所有设备的最新状态并广播
             latest_data = db.get_latest_status()
             socketio_inst.emit('device_update', latest_data)
-            print("SocketIO: Broadcasted device_update")
+        print("SocketIO: Broadcasted device_update")
         
     except Exception as e:
         print(f"Error processing MQTT message: {e}")

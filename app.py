@@ -1,7 +1,9 @@
 """
 Flask + SocketIO 主程序
-集成离线检测后台线程 - 升级版
 """
+
+import eventlet
+eventlet.monkey_patch()
 
 import time
 import threading
@@ -76,6 +78,12 @@ def get_latest():
 def get_history_stub():
     """历史记录接口（占位）"""
     return jsonify([])
+
+@app.route("/test")
+def test():
+    socketio.emit("update", {"msg": "测试"})
+    return "ok"
+
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=False)

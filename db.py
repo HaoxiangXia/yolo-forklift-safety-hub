@@ -1,5 +1,5 @@
 """
-SQLite 数据访问与表初始化 - 升级版
+SQLite 数据访问与表初始化
 """
 
 import sqlite3
