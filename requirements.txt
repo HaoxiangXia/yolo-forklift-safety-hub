@@ -1,2 +1,4 @@
-Flask==3.0.0
-paho-mqtt==1.6.1
+flask
+flask-socketio
+paho-mqtt
+eventlet

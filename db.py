@@ -14,55 +14,91 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """初始化数据库表结构，包含新增的 driver_present 和 outer_intrusion 字段"""
+    """重新设计数据库表结构"""
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # 核心设备状态表
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS alarms (
+        CREATE TABLE IF NOT EXISTS devices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id TEXT,
-            alarm INTEGER,
-            timestamp TEXT,
-            driver_present INTEGER,
-            outer_intrusion INTEGER
+            device_id TEXT UNIQUE,
+            alarm_status INTEGER DEFAULT 0,
+            error_count INTEGER DEFAULT 0,
+            boot_time TEXT,
+            last_seen TEXT,
+            online_status INTEGER DEFAULT 0,
+            update_time TEXT
         )
     """)
     conn.commit()
     conn.close()
 
-def insert_alarm_data(device_id, alarm, timestamp, driver_present, outer_intrusion):
-    """插入一条完整的报警数据"""
+def update_device_data(device_id, alarm):
+    """
+    当收到 MQTT 消息时更新设备数据
+    实现：boot_time 重置逻辑 和 error_count 累加逻辑
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO alarms (device_id, alarm, timestamp, driver_present, outer_intrusion)
-        VALUES (?, ?, ?, ?, ?)
-    """, (device_id, alarm, timestamp, driver_present, outer_intrusion))
+    
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 1. 查询该设备当前状态
+    cursor.execute("SELECT alarm_status, online_status, error_count, boot_time FROM devices WHERE device_id = ?", (device_id,))
+    row = cursor.fetchone()
+    
+    if row:
+        old_alarm = row['alarm_status']
+        old_online = row['online_status']
+        error_count = row['error_count']
+        boot_time = row['boot_time']
+        
+        # 逻辑：如果之前离线，现在上线，则重置 boot_time
+        if old_online == 0:
+            boot_time = now_str
+            
+        # 逻辑：当 alarm_status 从 0 变为 1 时，error_count + 1
+        if old_alarm == 0 and alarm == 1:
+            error_count += 1
+            
+        cursor.execute("""
+            UPDATE devices SET
+                alarm_status = ?,
+                error_count = ?,
+                boot_time = ?,
+                last_seen = ?,
+                online_status = 1,
+                update_time = ?
+            WHERE device_id = ?
+        """, (alarm, error_count, boot_time, now_str, now_str, device_id))
+    else:
+        # 新设备首次上线
+        cursor.execute("""
+            INSERT INTO devices (device_id, alarm_status, error_count, boot_time, last_seen, online_status, update_time)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
+        """, (device_id, alarm, (1 if alarm == 1 else 0), now_str, now_str, now_str))
+        
     conn.commit()
     conn.close()
 
-def get_latest_status():
-    """获取所有设备最新的状态记录"""
+def set_device_offline(device_id):
+    """标记设备为离线"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    # 子查询：找到每个 device_id 对应的最大 ID
-    query = """
-        SELECT * FROM alarms 
-        WHERE id IN (
-            SELECT MAX(id) FROM alarms GROUP BY device_id
-        )
-    """
-    cursor.execute(query)
+    cursor.execute("UPDATE devices SET online_status = 0 WHERE device_id = ?", (device_id,))
+    conn.commit()
+    conn.close()
+
+def get_all_devices():
+    """获取所有设备的当前状态列表"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM devices")
     rows = cursor.fetchall()
     conn.close()
-    # 将 sqlite3.Row 对象转换为普通字典列表，方便 Flask 返回 JSON
     return [dict(row) for row in rows]
 
-def get_history(limit=50):
-    """获取最近的历史记录"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM alarms ORDER BY id DESC LIMIT ?", (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+def get_latest_status():
+    """兼容旧接口"""
+    return get_all_devices()
