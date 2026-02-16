@@ -1,5 +1,5 @@
 """
-MQTT 订阅客户端，收到消息后写入数据库
+MQTT 订阅客户端，收到消息后写入数据库并通过 WebSocket 推送
 """
 
 import paho.mqtt.client as mqtt
@@ -11,6 +11,14 @@ from datetime import datetime
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "factory/forklift/+/alarm"
+
+# 全局 SocketIO 实例引用
+socketio_inst = None
+
+def set_socketio(sio):
+    """设置 SocketIO 实例，用于推送消息"""
+    global socketio_inst
+    socketio_inst = sio
 
 def on_connect(client, userdata, flags, rc):
     """连接成功回调函数"""
@@ -25,33 +33,35 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     """收到消息回调函数"""
     try:
-        # 1. 打印原始信息
-        print(f"Received message on topic {msg.topic}")
-        
-        # 2. 解析 JSON 数据
+        # 1. 解析 JSON 数据
         payload = json.loads(msg.payload.decode())
         
-        # 3. 从主题或 Payload 中获取设备 ID
-        # 主题格式: factory/forklift/DEVICE_ID/alarm
+        # 2. 从主题或 Payload 中获取设备 ID
         topic_parts = msg.topic.split('/')
         device_id = topic_parts[2] if len(topic_parts) >= 3 else payload.get("device_id", "unknown")
         
-        # 4. 提取各字段数据
+        # 3. 提取各字段数据
         alarm = payload.get("alarm", 0)
         driver_present = payload.get("driver_present", 0)
         outer_intrusion = payload.get("outer_intrusion", 0)
-        # 如果 JSON 里没有时间戳，则使用系统当前时间
         timestamp = payload.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         
-        # 5. 调用数据库模块保存数据
-        db.insert_alarm_data(
+        # 4. 更新数据库状态 (同时记录报警明细和更新设备在线状态)
+        db.update_device_status(
             device_id=device_id,
             alarm=alarm,
             timestamp=timestamp,
             driver_present=driver_present,
             outer_intrusion=outer_intrusion
         )
-        print(f"Saved data for device {device_id} to database.")
+        print(f"MQTT: Updated status for device {device_id}")
+
+        # 5. 通过 WebSocket 主动推送到前端
+        if socketio_inst:
+            # 获取所有设备的最新状态并广播
+            latest_data = db.get_latest_status()
+            socketio_inst.emit('device_update', latest_data)
+            print("SocketIO: Broadcasted device_update")
         
     except Exception as e:
         print(f"Error processing MQTT message: {e}")
