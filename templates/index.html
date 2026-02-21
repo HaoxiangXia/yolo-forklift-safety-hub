@@ -8,6 +8,23 @@
         body { font-family: 'Microsoft YaHei', sans-serif; margin: 20px; background-color: #f4f7f6; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h2 { color: #333; border-bottom: 2px solid #d9534f; padding-bottom: 10px; text-align: center; }
+        
+        /* 顶部统计栏样式 */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; display: block; }
+        .stat-label { font-size: 14px; opacity: 0.8; }
+        .stat-alarm { color: #ff4d4d; }
+        .stat-online { color: #44ff44; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #333; color: white; }
@@ -30,6 +47,22 @@
         </div>
 
         <h2>叉车作业人车互斥报警系统</h2>
+
+        <!-- 顶部统计栏 -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span id="stat-total" class="stat-value">0</span>
+                <span class="stat-label">设备总数</span>
+            </div>
+            <div class="stat-item">
+                <span id="stat-online" class="stat-value stat-online">0</span>
+                <span class="stat-label">在线设备</span>
+            </div>
+            <div class="stat-item">
+                <span id="stat-alarm" class="stat-value stat-alarm">0</span>
+                <span class="stat-label">当前报警</span>
+            </div>
+        </div>
         
         <table id="device-table">
             <thead>
@@ -50,8 +83,8 @@
             <h3>功能说明：</h3>
             <ul>
                 <li><strong>错误计数：</strong> 仅在设备发生从“正常”变为“报警”的瞬间增加。</li>
-                <li><strong>运行时间：</strong> 在线时计算自上一次上线（或重连）以来的时长；离线时显示“离线”。</li>
-                <li><strong>离线检测：</strong> 10 秒无数据自动判定。</li>
+                <li><strong>运行时间：</strong> 由前端根据服务器下发的启动时间戳每秒动态计算，显示为 HH:MM:SS。</li>
+                <li><strong>离线检测：</strong> 10 秒无数据自动判定，离线后停止运行时间计算。</li>
             </ul>
         </div>
     </div>

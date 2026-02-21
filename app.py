@@ -6,7 +6,6 @@ import eventlet
 eventlet.monkey_patch()
 
 import time
-import threading
 from datetime import datetime
 from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
@@ -14,25 +13,27 @@ import db
 import mqtt_client
 
 app = Flask(__name__)
-# 初始化 SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+# 显式指定 async_mode 为 eventlet
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# 初始化数据库（创建新表结构）
+# 初始化数据库
 db.init_db()
 
-# 将 SocketIO 实例传递给 MQTT 模块
+# 配置 MQTT 并传递 SocketIO
 mqtt_client.set_socketio(socketio)
-# 启动 MQTT 订阅客户端
 mqtt_client_inst = mqtt_client.start_mqtt()
 
-def offline_check_thread():
+def offline_check_loop():
     """
-    后台线程：每 5 秒检查一次设备在线状态
-    规则：超过 10 秒未上报则判定为离线
+    后台循环：每 5 秒检查一次离线
+    在 eventlet 架构下，使用 socketio.start_background_task 或 eventlet.spawn
     """
-    print("Offline detection thread started...")
+    print("Offline detection loop started...")
     while True:
         try:
+            # 必须使用 eventlet.sleep 而不是 time.sleep 来让出控制权
+            eventlet.sleep(5)
+            
             devices = db.get_all_devices()
             now = datetime.now()
             changed = False
@@ -45,22 +46,19 @@ def offline_check_thread():
                     
                     if diff > 10:
                         db.set_device_offline(dev['device_id'])
-                        print(f"Device {dev['device_id']} is now offline (last seen {diff}s ago)")
+                        print(f"Device {dev['device_id']} is now offline")
                         changed = True
             
             if changed:
-                latest_data = db.get_latest_status()
-                socketio.emit('device_update', latest_data)
+                full_data = db.get_latest_data_with_stats()
+                socketio.emit('device_update', full_data)
                 print("SocketIO: Broadcasted device_update (offline event)")
                 
         except Exception as e:
-            print(f"Error in offline_check_thread: {e}")
-        
-        time.sleep(5)
+            print(f"Error in offline_check_loop: {e}")
 
-# 启动离线检测后台线程
-daemon_thread = threading.Thread(target=offline_check_thread, daemon=True)
-daemon_thread.start()
+# 使用 SocketIO 提供的后台任务启动方式，它会自动适应 async_mode
+socketio.start_background_task(offline_check_loop)
 
 @app.route("/")
 def index():
@@ -69,21 +67,9 @@ def index():
 
 @app.route("/api/latest")
 def get_latest():
-    """API: 获取所有设备的最新状态"""
-    data = db.get_latest_status()
+    """API: 获取所有设备的最新状态及统计信息"""
+    data = db.get_latest_data_with_stats()
     return jsonify(data)
-
-# 如果不再需要历史记录接口，可以删除或保留，但注意数据库里现在主要维护实时状态
-@app.route("/api/history")
-def get_history_stub():
-    """历史记录接口（占位）"""
-    return jsonify([])
-
-@app.route("/test")
-def test():
-    socketio.emit("update", {"msg": "测试"})
-    return "ok"
-
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=False)

@@ -1,5 +1,5 @@
 """
-MQTT 订阅客户端，收到消息后写入数据库并通过 WebSocket 推送
+MQTT 订阅客户端 - 升级推送结构
 """
 
 import paho.mqtt.client as mqtt
@@ -24,37 +24,27 @@ def on_connect(client, userdata, flags, rc):
     """连接成功回调函数"""
     if rc == 0:
         print("Connected to MQTT Broker!")
-        # 订阅主题
         client.subscribe(MQTT_TOPIC)
-        print(f"Subscribed to topic: {MQTT_TOPIC}")
     else:
         print(f"Failed to connect, return code {rc}")
 
 def on_message(client, userdata, msg):
     """收到消息回调函数"""
     try:
-        # 1. 解析 JSON 数据
         payload = json.loads(msg.payload.decode())
-        
-        # 2. 从主题或 Payload 中获取设备 ID
         topic_parts = msg.topic.split('/')
         device_id = topic_parts[2] if len(topic_parts) >= 3 else payload.get("device_id", "unknown")
-        
-        # 3. 提取报警状态
         alarm = payload.get("alarm", 0)
         
-        # 4. 更新数据库状态 (处理 boot_time 和 error_count 逻辑)
-        db.update_device_data(
-            device_id=device_id,
-            alarm=alarm
-        )
+        # 更新数据库
+        db.update_device_data(device_id=device_id, alarm=alarm)
         print(f"MQTT: Updated data for device {device_id}")
 
-        # 5. 通过 WebSocket 主动推送到前端
+        # 通过 WebSocket 推送包含统计信息的数据包
         if socketio_inst:
-            latest_data = db.get_latest_status()
-            socketio_inst.emit('device_update', latest_data)
-        print("SocketIO: Broadcasted device_update")
+            full_data = db.get_latest_data_with_stats()
+            socketio_inst.emit('device_update', full_data)
+            print("SocketIO: Broadcasted device_update with stats")
         
     except Exception as e:
         print(f"Error processing MQTT message: {e}")
@@ -66,9 +56,7 @@ def start_mqtt():
     client.on_message = on_message
     
     try:
-        # 连接 Broker
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        # 开启后台循环，非阻塞运行
         client.loop_start()
         return client
     except Exception as e:

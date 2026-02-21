@@ -1,8 +1,9 @@
 """
-SQLite 数据访问与表初始化
+SQLite 数据访问与表初始化 - 升级统计功能
 """
 
 import sqlite3
+import time
 from datetime import datetime
 
 DB_NAME = "alarm.db"
@@ -37,7 +38,6 @@ def init_db():
 def update_device_data(device_id, alarm):
     """
     当收到 MQTT 消息时更新设备数据
-    实现：boot_time 重置逻辑 和 error_count 累加逻辑
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -98,6 +98,26 @@ def get_all_devices():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+def get_latest_data_with_stats():
+    """
+    获取所有设备数据，并计算统计信息
+    返回格式: { devices: [...], stats: { total: X, online: Y, alarm: Z } }
+    """
+    devices = get_all_devices()
+    total = len(devices)
+    online = sum(1 for d in devices if d['online_status'] == 1)
+    # 只有在线且报警的才算作当前报警设备
+    alarm = sum(1 for d in devices if d['alarm_status'] == 1 and d['online_status'] == 1)
+    
+    return {
+        "devices": devices,
+        "stats": {
+            "total": total,
+            "online": online,
+            "alarm": alarm
+        }
+    }
 
 def get_latest_status():
     """兼容旧接口"""
