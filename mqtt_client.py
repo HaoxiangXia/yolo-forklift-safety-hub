@@ -5,12 +5,8 @@ MQTT 订阅客户端 - 升级推送结构
 import paho.mqtt.client as mqtt
 import json
 import db
-from datetime import datetime
 
-# MQTT 配置
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
-MQTT_TOPIC = "factory/forklift/+/alarm"
+from config import MQTT_BROKER, MQTT_PORT, MQTT_TOPIC
 
 # 全局 SocketIO 实例引用
 socketio_inst = None

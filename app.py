@@ -8,6 +8,12 @@ from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
 import db
 import mqtt_client
+from config import (
+    OFFLINE_CHECK_INTERVAL_SEC,
+    OFFLINE_TIMEOUT_SEC,
+    HISTORY_LIMIT,
+    TREND_LIMIT,
+)
 
 app = Flask(__name__)
 # 显式指定 async_mode 为 threading
@@ -28,7 +34,7 @@ def offline_check_loop():
     print("Offline detection loop started...")
     while True:
         try:
-            time.sleep(5)
+            time.sleep(OFFLINE_CHECK_INTERVAL_SEC)
             
             devices = db.get_all_devices()
             now = datetime.now()
@@ -40,7 +46,7 @@ def offline_check_loop():
                     last_seen_time = datetime.strptime(dev['last_seen'], "%Y-%m-%d %H:%M:%S")
                     diff = (now - last_seen_time).total_seconds()
                     
-                    if diff > 10:
+                    if diff > OFFLINE_TIMEOUT_SEC:
                         db.set_device_offline(dev['device_id'])
                         print(f"Device {dev['device_id']} is now offline")
                         changed = True
@@ -81,9 +87,9 @@ def get_device_history(device_id):
     API: 返回设备详情，包括原始历史和趋势统计
     """
     # 趋势聚合数据（柱状图用）
-    trend = db.get_device_alarm_trend(device_id, limit=20)
+    trend = db.get_device_alarm_trend(device_id, limit=TREND_LIMIT)
     # 原始明细记录（列表用）
-    raw_history = db.get_device_history_raw(device_id, limit=20)
+    raw_history = db.get_device_history_raw(device_id, limit=HISTORY_LIMIT)
     
     return jsonify({
         "device_id": device_id,

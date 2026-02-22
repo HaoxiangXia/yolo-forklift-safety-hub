@@ -3,14 +3,13 @@ SQLite 数据访问与表初始化 - 增加趋势统计功能
 """
 
 import sqlite3
-import time
 from datetime import datetime
 
-DB_NAME = "alarm.db"
+from config import DB_PATH, HISTORY_LIMIT, TREND_LIMIT
 
 def get_db_connection():
     """获取数据库连接，设置 row_factory 为 Row 以便通过键名访问"""
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -127,8 +126,8 @@ def get_latest_data_with_stats():
         }
     }
 
-def get_device_history_raw(device_id, limit=20):
-    """获取原始最近 20 条记录，用于列表展示"""
+def get_device_history_raw(device_id, limit=HISTORY_LIMIT):
+    """获取原始最近记录，用于列表展示"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -142,17 +141,17 @@ def get_device_history_raw(device_id, limit=20):
     conn.close()
     return [dict(row) for row in rows]
 
-def get_device_alarm_trend(device_id, limit=20):
+def get_device_alarm_trend(device_id, limit=TREND_LIMIT):
     """
     报警次数趋势聚合统计：
-    1. 取最近 20 条记录
+    1. 取最近 limit 条记录
     2. 按分钟分组统计 alarm=1 的次数
     3. 返回 labels(分钟) 和 counts(次数)
     """
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 子查询取最近 20 条，外部查询进行分钟级聚合
+    # 子查询取最近 limit 条，外部查询进行分钟级聚合
     query = """
         SELECT 
             strftime('%H:%M', timestamp) as minute,
