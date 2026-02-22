@@ -67,9 +67,24 @@ def index():
 
 @app.route("/api/latest")
 def get_latest():
-    """API: 获取所有设备的最新状态及统计信息"""
-    data = db.get_latest_data_with_stats()
-    return jsonify(data)
+    return jsonify(db.get_latest_data_with_stats())
+
+@app.route("/device/<device_id>/history")
+def get_device_history(device_id):
+    """
+    API: 返回设备详情，包括原始历史和趋势统计
+    """
+    # 趋势聚合数据（柱状图用）
+    trend = db.get_device_alarm_trend(device_id, limit=20)
+    # 原始明细记录（列表用）
+    raw_history = db.get_device_history_raw(device_id, limit=20)
+    
+    return jsonify({
+        "device_id": device_id,
+        "labels": trend["labels"],
+        "counts": trend["counts"],
+        "raw_history": raw_history
+    })
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
