@@ -1,4 +1,4 @@
 flask
 flask-socketio
 paho-mqtt
-eventlet
+simple-websocket
