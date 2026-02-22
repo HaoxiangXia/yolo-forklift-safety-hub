@@ -2,9 +2,10 @@
 Flask + SocketIO 主程序
 """
 
+import sys
 import time
 from datetime import datetime
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO
 import db
 import mqtt_client
@@ -13,18 +14,53 @@ from config import (
     OFFLINE_TIMEOUT_SEC,
     HISTORY_LIMIT,
     TREND_LIMIT,
+    AUTH_ENABLED,
+    AUTH_TOKEN,
 )
 
 app = Flask(__name__)
 # 显式指定 async_mode 为 threading
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
+
+def extract_request_token(req):
+    """从请求头提取 token，兼容 Bearer 与 X-Auth-Token，便于联调与脚本调用。"""
+    auth_header = req.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    return req.headers.get("X-Auth-Token", "").strip()
+
+
+def validate_token(token):
+    """统一校验逻辑，避免 REST 与 SocketIO 出现不一致行为。"""
+    if not AUTH_ENABLED:
+        return True
+    if not AUTH_TOKEN:
+        print("[鉴权错误] 已启用鉴权但未配置 AUTH_TOKEN，请检查配置。")
+        return False
+    return token == AUTH_TOKEN
+
+
+def require_auth():
+    """REST 鉴权入口：失败返回 401，且中文提示方便排查。"""
+    token = extract_request_token(request)
+    if validate_token(token):
+        return None
+    print(f"[鉴权失败][REST] path={request.path}, ip={request.remote_addr}")
+    return jsonify({"message": "鉴权失败：Token 无效或缺失"}), 401
+
+
 # 初始化数据库
 db.init_db()
 
 # 配置 MQTT 并传递 SocketIO
 mqtt_client.set_socketio(socketio)
-mqtt_client_inst = mqtt_client.start_mqtt()
+try:
+    mqtt_client_inst = mqtt_client.start_mqtt()
+except Exception as exc:
+    print(f"[启动失败] MQTT 客户端启动异常，服务终止: {exc}")
+    sys.exit(1)
+
 
 def offline_check_loop():
     """
@@ -35,68 +71,93 @@ def offline_check_loop():
     while True:
         try:
             time.sleep(OFFLINE_CHECK_INTERVAL_SEC)
-            
+
             devices = db.get_all_devices()
             now = datetime.now()
             changed = False
-            
+
             for dev in devices:
                 if dev['online_status'] == 1:
                     # 解析最近看到的时间
                     last_seen_time = datetime.strptime(dev['last_seen'], "%Y-%m-%d %H:%M:%S")
                     diff = (now - last_seen_time).total_seconds()
-                    
+
                     if diff > OFFLINE_TIMEOUT_SEC:
                         db.set_device_offline(dev['device_id'])
                         print(f"Device {dev['device_id']} is now offline")
                         changed = True
-            
+
             if changed:
                 full_data = db.get_latest_data_with_stats()
                 socketio.emit('device_update', full_data)
                 print("SocketIO: Broadcasted device_update (offline event)")
-                
+
         except Exception as e:
             print(f"Error in offline_check_loop: {e}")
+
 
 # 使用 SocketIO 提供的后台任务启动方式，它会自动适应 async_mode
 socketio.start_background_task(offline_check_loop)
 
+
 @socketio.on("connect")
-def handle_connect():
-    """WebSocket 连接事件"""
+def handle_connect(auth):
+    """WebSocket 连接事件。"""
+    token = ""
+    # 兼容 auth payload 与 query 参数，减少不同前端接入方式的改造成本。
+    if isinstance(auth, dict):
+        token = str(auth.get("token", "")).strip()
+    if not token:
+        token = request.args.get("token", "").strip()
+
+    if not validate_token(token):
+        print(f"[鉴权失败][SocketIO] sid={request.sid}, ip={request.remote_addr}")
+        raise ConnectionRefusedError("鉴权失败：Socket Token 无效或缺失")
+
     print("SocketIO client connected")
+
 
 @socketio.on("disconnect")
 def handle_disconnect():
     """WebSocket 断开事件"""
     print("SocketIO client disconnected")
 
+
 @app.route("/")
 def index():
     """渲染主页"""
-    return render_template("index.html")
+    return render_template("index.html", app_auth_token=AUTH_TOKEN)
+
 
 @app.route("/api/latest")
 def get_latest():
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
     return jsonify(db.get_latest_data_with_stats())
+
 
 @app.route("/device/<device_id>/history")
 def get_device_history(device_id):
     """
     API: 返回设备详情，包括原始历史和趋势统计
     """
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+
     # 趋势聚合数据（柱状图用）
     trend = db.get_device_alarm_trend(device_id, limit=TREND_LIMIT)
     # 原始明细记录（列表用）
     raw_history = db.get_device_history_raw(device_id, limit=HISTORY_LIMIT)
-    
+
     return jsonify({
         "device_id": device_id,
         "labels": trend["labels"],
         "counts": trend["counts"],
         "raw_history": raw_history
     })
+
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000)

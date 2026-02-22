@@ -4,7 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.querySelector('#device-table tbody');
-    const wsStatus = document.querySelector('#ws-status');
+    const wsStatusElement = document.querySelector('#ws-status');
     const statTotal = document.getElementById('stat-total');
     const statOnline = document.getElementById('stat-online');
     const statAlarm = document.getElementById('stat-alarm');
@@ -14,14 +14,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalDeviceTitle = document.getElementById('modalDeviceTitle');
     const modalDeviceInfo = document.getElementById('modalDeviceInfo');
     const modalHistoryList = document.getElementById('modalHistoryList');
-    
-    let devicesData = []; 
-    let historyChart = null; 
+
+    let devicesData = [];
+    let historyChart = null;
+    let wsStatus = 'disconnected';
+
+    const AUTH_TOKEN = window.APP_AUTH_TOKEN || '';
+
+    function updateWsStatus(status, text) {
+        wsStatus = status;
+        wsStatusElement.textContent = `WebSocket: ${text}`;
+        if (status === 'connected' || status === 'reconnected') {
+            wsStatusElement.classList.add('ws-connected');
+            wsStatusElement.classList.remove('ws-disconnected');
+        } else {
+            wsStatusElement.classList.add('ws-disconnected');
+            wsStatusElement.classList.remove('ws-connected');
+        }
+    }
+
+    function authHeaders() {
+        const headers = {};
+        if (AUTH_TOKEN) {
+            headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
+            headers['X-Auth-Token'] = AUTH_TOKEN;
+        }
+        return headers;
+    }
 
     function formatRuntime(bootTimeStr, onlineStatus) {
-        if (onlineStatus === 0) return '<span class="status-offline">离线</span>';
+        if (onlineStatus === 0) return '离线';
         if (!bootTimeStr) return '00:00:00';
-        const bootDate = new Date(bootTimeStr.replace(/-/g, '/')); 
+        const bootDate = new Date(bootTimeStr.replace(/-/g, '/'));
         const now = new Date();
         const diffSec = Math.floor((now - bootDate) / 1000);
         if (diffSec < 0) return '00:00:00';
@@ -45,18 +69,37 @@ document.addEventListener('DOMContentLoaded', () => {
             if (device.alarm_status === 1 && device.online_status === 1) {
                 tr.className = 'alarm-active';
             }
-            const alarmText = device.alarm_status === 1 ? '⚠️ 报警' : '正常';
-            const runtime = formatRuntime(device.boot_time, device.online_status);
 
-            tr.innerHTML = `
-                <td>${device.device_id}</td>
-                <td class="${device.alarm_status === 1 ? 'alarm-active' : 'alarm-normal'}">${alarmText}</td>
-                <td>${device.error_count}</td>
-                <td class="runtime-cell" data-boot="${device.boot_time}" data-online="${device.online_status}">
-                    ${runtime}
-                </td>
-                <td class="update-time">${device.update_time}</td>
-            `;
+            const tdDeviceId = document.createElement('td');
+            // 使用 textContent 仅写入纯文本，可阻断外部数据被当作 HTML 执行，避免 XSS。
+            tdDeviceId.textContent = device.device_id || '';
+
+            const tdAlarm = document.createElement('td');
+            tdAlarm.className = device.alarm_status === 1 ? 'alarm-active' : 'alarm-normal';
+            tdAlarm.textContent = device.alarm_status === 1 ? '⚠️ 报警' : '正常';
+
+            const tdErrorCount = document.createElement('td');
+            tdErrorCount.textContent = String(device.error_count ?? 0);
+
+            const tdRuntime = document.createElement('td');
+            tdRuntime.className = 'runtime-cell';
+            tdRuntime.dataset.boot = device.boot_time || '';
+            tdRuntime.dataset.online = String(device.online_status ?? 0);
+            tdRuntime.textContent = formatRuntime(device.boot_time, device.online_status);
+            if (device.online_status === 0) {
+                tdRuntime.classList.add('status-offline');
+            }
+
+            const tdUpdateTime = document.createElement('td');
+            tdUpdateTime.className = 'update-time';
+            tdUpdateTime.textContent = device.update_time || '';
+
+            tr.appendChild(tdDeviceId);
+            tr.appendChild(tdAlarm);
+            tr.appendChild(tdErrorCount);
+            tr.appendChild(tdRuntime);
+            tr.appendChild(tdUpdateTime);
+
             tr.onclick = () => openDeviceModal(device);
             tableBody.appendChild(tr);
         });
@@ -65,17 +108,27 @@ document.addEventListener('DOMContentLoaded', () => {
     async function openDeviceModal(device) {
         modalDeviceTitle.textContent = `设备报警趋势: ${device.device_id}`;
         modal.style.display = 'block';
-        
+
         const onlineStatusText = device.online_status === 1 ? '在线' : '离线';
-        modalDeviceInfo.innerHTML = `
-            <p><strong>当前状态:</strong> ${onlineStatusText} | 
-               <strong>累计错误:</strong> ${device.error_count}</p>
-        `;
+        modalDeviceInfo.innerHTML = '';
+        const p = document.createElement('p');
+        const strongStatus = document.createElement('strong');
+        strongStatus.textContent = '当前状态:';
+        p.appendChild(strongStatus);
+        p.appendChild(document.createTextNode(` ${onlineStatusText} | `));
+
+        const strongError = document.createElement('strong');
+        strongError.textContent = '累计错误:';
+        p.appendChild(strongError);
+        p.appendChild(document.createTextNode(` ${device.error_count ?? 0}`));
+        modalDeviceInfo.appendChild(p);
 
         try {
-            const res = await fetch(`/device/${device.device_id}/history`);
+            const res = await fetch(`/device/${encodeURIComponent(device.device_id)}/history`, {
+                headers: authHeaders()
+            });
             const data = await res.json();
-            
+
             renderHistoryList(data.raw_history || []);
             renderChart(data.labels, data.counts);
         } catch (e) {
@@ -88,8 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
         history.forEach(item => {
             const div = document.createElement('div');
             div.className = 'history-item';
-            const statusText = item.alarm === 1 ? '<span style="color:red">报警</span>' : '<span style="color:green">正常</span>';
-            div.innerHTML = `<span>${item.timestamp}</span><span>${statusText}</span>`;
+
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = item.timestamp || '';
+
+            const statusSpan = document.createElement('span');
+            statusSpan.textContent = item.alarm === 1 ? '报警' : '正常';
+            statusSpan.style.color = item.alarm === 1 ? 'red' : 'green';
+
+            div.appendChild(timeSpan);
+            div.appendChild(statusSpan);
             modalHistoryList.appendChild(div);
         });
     }
@@ -101,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         historyChart = new Chart(ctx, {
-            type: 'bar', // 改为柱状图
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
@@ -134,19 +195,29 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onclick = (event) => {
-        if (event.target == modal) closeBtn.onclick();
+        if (event.target === modal) closeBtn.onclick();
     };
 
     setInterval(() => {
         const cells = document.querySelectorAll('.runtime-cell');
         cells.forEach(cell => {
             const boot = cell.getAttribute('data-boot');
-            const online = parseInt(cell.getAttribute('data-online'));
-            cell.innerHTML = formatRuntime(boot, online);
+            const online = parseInt(cell.getAttribute('data-online'), 10);
+            cell.textContent = formatRuntime(boot, online);
+            cell.classList.toggle('status-offline', online === 0);
         });
     }, 1000);
 
-    const socket = io();
+    const socketOptions = AUTH_TOKEN ? { auth: { token: AUTH_TOKEN } } : {};
+    const socket = io(socketOptions);
+
+    // 统一维护连接状态，值班人员可从页面快速确认链路健康，避免误判系统“在线但无数据”。
+    socket.on('connect', () => updateWsStatus('connected', '已连接'));
+    socket.on('disconnect', () => updateWsStatus('disconnected', '已断开'));
+    socket.on('reconnect_attempt', () => updateWsStatus('reconnect_attempt', '重连中'));
+    socket.on('reconnect', () => updateWsStatus('reconnected', '已重连'));
+    socket.on('connect_error', (err) => updateWsStatus('connect_error', `连接错误：${err?.message || '未知错误'}`));
+
     socket.on('device_update', (data) => {
         devicesData = data.devices || [];
         updateStatsBar(data.stats);
@@ -155,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function init() {
         try {
-            const res = await fetch('/api/latest');
+            const res = await fetch('/api/latest', { headers: authHeaders() });
             const data = await res.json();
             devicesData = data.devices || [];
             updateStatsBar(data.stats);
