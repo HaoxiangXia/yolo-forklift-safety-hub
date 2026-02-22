@@ -2,9 +2,6 @@
 Flask + SocketIO 主程序
 """
 
-import eventlet
-eventlet.monkey_patch()
-
 import time
 from datetime import datetime
 from flask import Flask, jsonify, render_template
@@ -13,8 +10,8 @@ import db
 import mqtt_client
 
 app = Flask(__name__)
-# 显式指定 async_mode 为 eventlet
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# 显式指定 async_mode 为 threading
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # 初始化数据库
 db.init_db()
@@ -26,13 +23,12 @@ mqtt_client_inst = mqtt_client.start_mqtt()
 def offline_check_loop():
     """
     后台循环：每 5 秒检查一次离线
-    在 eventlet 架构下，使用 socketio.start_background_task 或 eventlet.spawn
+    在线程模式下使用 time.sleep 即可
     """
     print("Offline detection loop started...")
     while True:
         try:
-            # 必须使用 eventlet.sleep 而不是 time.sleep 来让出控制权
-            eventlet.sleep(5)
+            time.sleep(5)
             
             devices = db.get_all_devices()
             now = datetime.now()
@@ -59,6 +55,16 @@ def offline_check_loop():
 
 # 使用 SocketIO 提供的后台任务启动方式，它会自动适应 async_mode
 socketio.start_background_task(offline_check_loop)
+
+@socketio.on("connect")
+def handle_connect():
+    """WebSocket 连接事件"""
+    print("SocketIO client connected")
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    """WebSocket 断开事件"""
+    print("SocketIO client disconnected")
 
 @app.route("/")
 def index():
@@ -87,4 +93,4 @@ def get_device_history(device_id):
     })
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    socketio.run(app, host="0.0.0.0", port=5000)
