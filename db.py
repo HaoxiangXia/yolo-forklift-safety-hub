@@ -5,12 +5,16 @@ SQLite 数据访问与表初始化 - 增加趋势统计功能
 import sqlite3
 from datetime import datetime
 
-from config import DB_PATH, HISTORY_LIMIT, TREND_LIMIT
+from config import DB_PATH, HISTORY_LIMIT, TREND_LIMIT, DB_BUSY_TIMEOUT_MS
 
 def get_db_connection():
     """获取数据库连接，设置 row_factory 为 Row 以便通过键名访问"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # 使用 WAL 让读写并发更友好，读请求不会轻易被写事务阻塞。
+    conn.execute("PRAGMA journal_mode=WAL;")
+    # 设置 busy_timeout 后，遇到锁竞争会等待一段时间，降低 database is locked 概率。
+    conn.execute(f"PRAGMA busy_timeout={DB_BUSY_TIMEOUT_MS};")
     return conn
 
 def init_db():
