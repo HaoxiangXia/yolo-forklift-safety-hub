@@ -127,7 +127,19 @@ document.addEventListener('DOMContentLoaded', () => {
         statOnline.textContent = stats.online || 0;
         statAlarm.textContent = stats.alarm || 0;
     }
+    
+    function formatToChinaTime(utcString) {
+    if (!utcString) return '-';
 
+    const date = new Date(utcString);
+    if (isNaN(date)) return utcString;
+
+    return date.toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        hour12: false
+    });
+    }
+   
     function formatRuntime(bootTimeStr, onlineStatus) {
         if (onlineStatus === 0) return '——';
         if (!bootTimeStr) return '00:00:00';
@@ -171,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tdRuntime.textContent = formatRuntime(device.boot_time, device.online_status);
 
             const tdUpdate = document.createElement('td');
-            tdUpdate.textContent = device.last_seen || device.update_time || '';
+            tdUpdate.textContent = formatToChinaTime(device.last_seen || device.update_time);
             tdUpdate.className = 'update-time';
 
             tr.appendChild(tdId);
@@ -197,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logs.forEach(l => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${l.ts || '-'}</td>
+                <td>${formatToChinaTime(l.ts)}</td>
                 <td>${l.level || '-'}</td>
                 <td>${l.event || '-'}</td>
                 <td>${l.device_id || '-'}</td>
@@ -284,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement('div');
             div.className = 'history-item';
             const statusText = item.alarm === 1 ? '<span style="color:red;font-weight:bold;">报警</span>' : '<span style="color:green;">正常</span>';
-            div.innerHTML = `<span>状态: ${statusText}</span> <span style="color:#666;font-size:0.9em;">上报时间: ${item.timestamp}</span>`;
+            div.innerHTML = `<span>状态: ${statusText}</span> <span style="color:#666;font-size:0.9em;">上报时间: ${formatToChinaTime(item.timestamp)}</span>`;
             modalHistoryList.appendChild(div);
         });
     }
