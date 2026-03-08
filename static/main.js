@@ -1,11 +1,10 @@
 /**
- * 前端综合逻辑：包含实时状态更新、带 Token 的双通道鉴权(WebSocket + API)、图表弹窗、以及独立日志展示。
+ * 前端综合逻辑：包含实时状态更新、带 Token 的双通道鉴权(WebSocket + API)、图表弹窗。
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM 元素引用
     const tableBody = document.querySelector('#device-table tbody');
-    const logTableBody = document.querySelector('#log-table tbody');
     const wsStatusElement = document.querySelector('#ws-status');
     
     // 顶部统计数字
@@ -72,8 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 online: data.stats?.online || 0,
                 alarm: data.stats?.alarm || 0
             });
-            // 同步拉取新日志
-            fetchLogs();
         }
     });
 
@@ -91,20 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderDevices();
                 updateStats(devData.stats);
             }
-            fetchLogs();
         } catch (e) {
             console.error("获取初始数据失败:", e);
-        }
-    }
-
-    async function fetchLogs() {
-        try {
-            const logRes = await fetch("/api/biz_logs", { headers: authHeaders() });
-            if (!logRes.ok) return;
-            const logData = await logRes.json();
-            renderLogs(logData);
-        } catch (e) {
-            console.error("历史日志抓取失败:", e);
         }
     }
 
@@ -196,24 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             tableBody.appendChild(tr);
-        });
-    }
-
-    function renderLogs(logs) {
-        logTableBody.innerHTML = "";
-        if (!Array.isArray(logs)) return;
-        
-        logs.forEach(l => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${formatToChinaTime(l.ts)}</td>
-                <td>${l.level || '-'}</td>
-                <td>${l.event || '-'}</td>
-                <td>${l.device_id || '-'}</td>
-                <td>${l.message || '-'}</td>
-                <td>${l.extra ? JSON.stringify(l.extra) : '-'}</td>
-            `;
-            logTableBody.appendChild(tr);
         });
     }
 
