@@ -79,6 +79,58 @@ def get_latest_biz_logs(limit=100):
         })
     return logs
 
+def get_biz_logs_by_page(page=1, page_size=20):
+    """
+    分页查询业务日志
+    :param page: 页码（从1开始）
+    :param page_size: 每页条数
+    :return: {logs: 日志列表, total: 总条数, total_pages: 总页数}
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 检查表是否存在
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='biz_logs'")
+    if not cursor.fetchone():
+        conn.close()
+        return {"logs": [], "total": 0, "total_pages": 0}
+    
+    # 查询总条数
+    cursor.execute("SELECT COUNT(*) FROM biz_logs")
+    total = cursor.fetchone()[0]
+    
+    # 计算总页数
+    total_pages = (total + page_size - 1) // page_size
+    
+    # 分页查询日志（按ID倒序，最新的在前）
+    offset = (page - 1) * page_size
+    cursor.execute("""
+        SELECT * FROM biz_logs 
+        ORDER BY id DESC 
+        LIMIT ? OFFSET ?
+    """, (page_size, offset))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    logs = []
+    for r in rows:
+        logs.append({
+            "id": r[0],
+            "ts": r[1],
+            "level": r[2],
+            "event": r[3],
+            "device_id": r[4],
+            "message": r[5],
+            "extra": json.loads(r[6]) if r[6] else {}
+        })
+    
+    return {
+        "logs": logs,
+        "total": total,
+        "total_pages": total_pages
+    }
+
 # =========================
 # 统一日志接口
 # =========================
