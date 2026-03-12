@@ -5,181 +5,461 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>业务日志 - 叉车作业人车互斥报警系统</title>
   <style>
-    body {
-      font-family: "Microsoft YaHei", sans-serif;
-      margin: 20px;
-      background-color: #f4f7f6;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    h1, h2 {
-      color: #333;
-      text-align: center;
-    }
-    h1 {
-      border-bottom: 2px solid #d9534f;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
-    }
-    /* 导航样式 */
-    .nav-bar {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .nav-btn {
-      display: inline-block;
-      padding: 8px 16px;
-      background: #d9534f;
-      color: white;
-      text-decoration: none;
-      border-radius: 4px;
-      margin: 0 5px;
-    }
-    .nav-btn:hover {
-      background: #c9302c;
-    }
-    /* 日志表格样式 */
-    #log-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    #log-table th {
-      background: #eee;
-      color: #333;
-      border: 1px solid #ccc;
-      padding: 12px;
-      text-align: left;
-    }
-    #log-table td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      font-size: 0.9em;
-    }
-    /* 分页样式 */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      margin-top: 20px;
-      gap: 8px;
-    }
-    .page-btn {
-      padding: 6px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: white;
-      cursor: pointer;
-    }
-    .page-btn.active {
-      background: #d9534f;
-      color: white;
-      border-color: #d9534f;
-    }
-    .page-btn:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
+    /* ===== CSS 变量定义 ===== */
+    :root {
+      --bg-primary: #f5f5f7;
+      --bg-card: #ffffff;
+      --text-primary: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --border-color: #d2d2d7;
+      --status-normal: #34c759;
+      --status-alarm: #ff3b30;
+      --status-offline: #8e8e93;
+      --radius: 6px;
+      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
     }
 
-    /* 筛选区域样式 */
+    /* ===== 基础重置 ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== 页面容器 ===== */
+    .page-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ===== 通用卡片样式 ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ===== 头部区域 ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-title h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .header-title .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ===== 导航按钮 ===== */
+    .nav-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      text-decoration: none;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      font-size: 13px;
+      font-weight: 400;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover {
+      background: var(--bg-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .nav-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* ===== 筛选区域 ===== */
     .filter-bar {
       display: flex;
-      gap: 15px;
+      gap: 12px;
       margin-bottom: 20px;
-      padding: 15px;
-      background: #f8f9fa;
-      border-radius: 6px;
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
       flex-wrap: wrap;
       align-items: center;
     }
-    .filter-bar label {
-      font-weight: bold;
-      color: #555;
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .filter-bar select,
-    .filter-bar input {
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.9em;
+
+    .filter-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
     }
-    .filter-bar button {
-      padding: 6px 16px;
-      background: #d9534f;
-      color: white;
-      border: none;
-      border-radius: 4px;
+
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-family: var(--font-family);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      min-width: 120px;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: var(--text-secondary);
+    }
+
+    .filter-group input {
+      min-width: 160px;
+    }
+
+    .filter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--text-primary);
+      color: var(--bg-card);
+      border: 1px solid var(--text-primary);
+      border-radius: var(--radius);
+      font-size: 13px;
       cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .filter-bar button:hover {
-      background: #c9302c;
+
+    .filter-btn:hover {
+      background: var(--text-secondary);
+      border-color: var(--text-secondary);
     }
-    .filter-bar button:disabled {
-      background: #ccc;
+
+    .filter-btn.secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .filter-btn.secondary:hover {
+      background: var(--bg-primary);
+    }
+
+    .filter-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* ===== 表格样式 ===== */
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .log-table th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+      white-space: nowrap;
+    }
+
+    .log-table td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .log-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .log-table tbody tr {
+      transition: background-color 0.15s ease;
+    }
+
+    .log-table tbody tr:hover {
+      background: var(--bg-primary);
+    }
+
+    .log-table .time-col {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .log-table .category-col {
+      font-weight: 500;
+    }
+
+    .log-table .message-col {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .log-table .extra-col {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ===== 日志级别标签 ===== */
+    .level-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .level-tag.debug {
+      background: #e5e5ea;
+      color: #8e8e93;
+    }
+
+    .level-tag.info {
+      background: #e5e5ea;
+      color: #007aff;
+    }
+
+    .level-tag.warning {
+      background: #fff3cd;
+      color: #ff9500;
+    }
+
+    .level-tag.error {
+      background: #ffe5e5;
+      color: #ff3b30;
+    }
+
+    .level-tag.critical {
+      background: #ff3b30;
+      color: white;
+    }
+
+    /* ===== 分页控件 ===== */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .page-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: var(--bg-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.4;
       cursor: not-allowed;
+    }
+
+    .page-btn.active {
+      background: var(--text-primary);
+      color: var(--bg-card);
+      border-color: var(--text-primary);
+    }
+
+    .page-info {
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding: 0 12px;
+    }
+
+    /* ===== 空状态 ===== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- 导航栏 -->
-    <div class="nav-bar">
-      <a href="/" class="nav-btn">返回实时监控</a>
-      <h1>业务日志查询</h1>
+  <div class="page-container">
+    <!-- 头部 -->
+    <div class="header">
+      <div class="header-left">
+        <div class="header-title">
+          <h1>业务日志查询</h1>
+          <div class="subtitle">叉车作业人车互斥报警系统 / Log Management</div>
+        </div>
+      </div>
+      <div class="nav-bar">
+        <a href="/" class="nav-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          实时监控
+        </a>
+        <a href="/devices" class="nav-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
+            <path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+          </svg>
+          设备列表
+        </a>
+      </div>
     </div>
 
     <!-- 筛选控件 -->
     <div class="filter-bar">
-      <label for="category-filter">日志分类：</label>
-      <select id="category-filter">
-        <option value="">全部</option>
-        <option value="ops">运维日志 (Ops)</option>
-        <option value="biz">业务日志 (Biz)</option>
-        <option value="sec">安全日志 (Sec)</option>
-      </select>
+      <div class="filter-group">
+        <label for="category-filter">日志分类：</label>
+        <select id="category-filter">
+          <option value="">全部</option>
+          <option value="ops">运维日志 (Ops)</option>
+          <option value="biz">业务日志 (Biz)</option>
+          <option value="sec">安全日志 (Sec)</option>
+        </select>
+      </div>
 
-      <label for="level-filter">日志级别：</label>
-      <select id="level-filter">
-        <option value="">全部</option>
-        <option value="DEBUG">DEBUG</option>
-        <option value="INFO">INFO</option>
-        <option value="WARNING">WARNING</option>
-        <option value="ERROR">ERROR</option>
-        <option value="CRITICAL">CRITICAL</option>
-      </select>
+      <div class="filter-group">
+        <label for="level-filter">日志级别：</label>
+        <select id="level-filter">
+          <option value="">全部</option>
+          <option value="DEBUG">DEBUG</option>
+          <option value="INFO">INFO</option>
+          <option value="WARNING">WARNING</option>
+          <option value="ERROR">ERROR</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+      </div>
 
-      <label for="device-filter">设备ID：</label>
-      <input type="text" id="device-filter" placeholder="例如：FORK-001" />
+      <div class="filter-group">
+        <label for="device-filter">设备ID：</label>
+        <input type="text" id="device-filter" placeholder="例如：FORK-001" />
+      </div>
 
-      <button id="filter-btn">筛选</button>
-      <button id="reset-btn">重置</button>
+      <button id="filter-btn" class="filter-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        筛选
+      </button>
+      <button id="reset-btn" class="filter-btn secondary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        重置
+      </button>
     </div>
 
     <!-- 日志表格 -->
-    <table id="log-table">
-      <thead>
-        <tr>
-          <th>时间</th>
-          <th>分类</th>
-          <th>级别</th>
-          <th>事件</th>
-          <th>设备</th>
-          <th>消息</th>
-          <th>附加信息</th>
-        </tr>
-      </thead>
-      <tbody id="log-table-body"></tbody>
-    </table>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">日志记录</span>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>分类</th>
+            <th>级别</th>
+            <th>事件</th>
+            <th>设备</th>
+            <th>消息</th>
+            <th>附加信息</th>
+          </tr>
+        </thead>
+        <tbody id="log-table-body">
+          <tr>
+            <td colspan="7" class="empty-state">加载中...</td>
+          </tr>
+        </tbody>
+      </table>
 
-    <!-- 分页控件 -->
-    <div class="pagination">
-      <button class="page-btn" id="prev-btn" disabled>上一页</button>
-      <span id="page-info">第 1 页 / 共 0 页</span>
-      <button class="page-btn" id="next-btn" disabled>下一页</button>
+      <!-- 分页控件 -->
+      <div class="pagination">
+        <button class="page-btn" id="prev-btn" disabled>上一页</button>
+        <span class="page-info" id="page-info">第 1 页 / 共 0 页</span>
+        <button class="page-btn" id="next-btn" disabled>下一页</button>
+      </div>
     </div>
   </div>
 
@@ -191,7 +471,7 @@
     // 全局配置
     const APP_AUTH_TOKEN = JSON.parse(document.getElementById('auth-token-data').textContent);
     let currentPage = 1;
-    const pageSize = 20; // 每页显示20条
+    const pageSize = 20;
     let totalPages = 0;
     let currentCategory = '';
     let currentLevel = '';
@@ -218,10 +498,21 @@
       });
     }
 
-    // 获取日志数据（带分页和筛选）
+    // 获取日志级别样式
+    function getLevelClass(level) {
+      const levelMap = {
+        'DEBUG': 'debug',
+        'INFO': 'info',
+        'WARNING': 'warning',
+        'ERROR': 'error',
+        'CRITICAL': 'critical'
+      };
+      return levelMap[level] || 'info';
+    }
+
+    // 获取日志数据
     async function fetchLogs(page = 1) {
       try {
-        // 构建查询参数
         let url = `/api/logs?page=${page}&page_size=${pageSize}`;
         if (currentCategory) {
           url += `&category=${encodeURIComponent(currentCategory)}`;
@@ -242,19 +533,20 @@
         // 渲染日志列表
         const logTableBody = document.getElementById('log-table-body');
         logTableBody.innerHTML = '';
+        
         if (data.logs.length === 0) {
-          logTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">暂无日志数据</td></tr>';
+          logTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无日志数据</td></tr>';
         } else {
           data.logs.forEach(l => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${formatToChinaTime(l.ts)}</td>
-              <td>${l.category || '-'}</td>
-              <td>${l.level || '-'}</td>
+              <td class="time-col">${formatToChinaTime(l.ts)}</td>
+              <td class="category-col">${l.category || '-'}</td>
+              <td><span class="level-tag ${getLevelClass(l.level)}">${l.level || '-'}</span></td>
               <td>${l.event || '-'}</td>
               <td>${l.device_id || '-'}</td>
-              <td>${l.message || '-'}</td>
-              <td>${l.extra ? JSON.stringify(l.extra) : '-'}</td>
+              <td class="message-col" title="${l.message || ''}">${l.message || '-'}</td>
+              <td class="extra-col" title="${l.extra ? JSON.stringify(l.extra) : ''}">${l.extra ? JSON.stringify(l.extra) : '-'}</td>
             `;
             logTableBody.appendChild(tr);
           });
@@ -268,7 +560,7 @@
         document.getElementById('next-btn').disabled = currentPage >= totalPages;
       } catch (e) {
         console.error("获取日志失败:", e);
-        document.getElementById('log-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">加载日志失败</td></tr>';
+        document.getElementById('log-table-body').innerHTML = '<tr><td colspan="7" class="empty-state" style="color: #ff3b30;">加载日志失败</td></tr>';
       }
     }
 
@@ -285,7 +577,7 @@
       currentCategory = document.getElementById('category-filter').value;
       currentLevel = document.getElementById('level-filter').value;
       currentDeviceId = document.getElementById('device-filter').value.trim();
-      fetchLogs(1); // 筛选时重置到第一页
+      fetchLogs(1);
     });
 
     // 绑定重置事件

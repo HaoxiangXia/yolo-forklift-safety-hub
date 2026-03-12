@@ -1,6 +1,7 @@
 """
 MQTT 模拟上报脚本 - 同步升级版
-用于配合“叉车作业人车互斥报警系统”进行测试
+用于配合"叉车作业人车互斥报警系统"进行测试
+包含设备位置模拟功能
 """
 
 import paho.mqtt.client as mqtt
@@ -8,6 +9,13 @@ import json
 import time
 import random
 from datetime import datetime
+import sys
+import os
+
+# 添加父目录到路径，以便导入 db 和 config
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db
+from config import POSITION_UPDATE_INTERVAL_SEC, POSITION_MOVE_RANGE
 
 # MQTT 配置
 MQTT_BROKER = "localhost"
@@ -76,5 +84,50 @@ def simulate_publish():
     finally:
         client.disconnect()
 
+
+def simulate_position_update():
+    """
+    设备位置模拟更新函数
+    初始化随机位置并定期更新位置（模拟叉车移动）
+    """
+    print(f"[Position Sim] Initializing device positions...")
+    
+    # 初始化设备位置
+    db.init_device_positions()
+    
+    print(f"[Position Sim] Starting position update loop (interval: {POSITION_UPDATE_INTERVAL_SEC}s)...")
+    
+    while True:
+        try:
+            time.sleep(POSITION_UPDATE_INTERVAL_SEC)
+            
+            devices = db.get_all_devices_with_positions()
+            for dev in devices:
+                if dev['online_status'] == 1:
+                    # 随机移动 -POSITION_MOVE_RANGE 到 +POSITION_MOVE_RANGE
+                    new_x = (dev['pos_x'] or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)
+                    new_y = (dev['pos_y'] or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)
+                    
+                    # 限制范围
+                    new_x = max(0, min(1920, new_x))
+                    new_y = max(0, min(1080, new_y))
+                    
+                    db.update_device_position(dev['device_id'], new_x, new_y)
+                    print(f"[Position Sim] {dev['device_id']}: ({new_x:.1f}, {new_y:.1f})")
+            
+        except KeyboardInterrupt:
+            print("\n[Position Sim] Stopped by user.")
+            break
+        except Exception as e:
+            print(f"[Position Sim] Error: {e}")
+
+
 if __name__ == "__main__":
-    simulate_publish()
+    import threading
+    
+    # 启动 MQTT 上报线程
+    mqtt_thread = threading.Thread(target=simulate_publish, daemon=True)
+    mqtt_thread.start()
+    
+    # 启动位置模拟线程
+    simulate_position_update()

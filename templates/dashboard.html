@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>叉车作业人车互斥报警系统</title>
+  <!-- 引入 ECharts (本地) -->
+  <script src="/static/echarts.min.js"></script>
+  <!-- 引入 Socket.io (本地) -->
+  <script src="/static/socket.io.min.js"></script>
+  <style>
+    /* ===== CSS 变量定义 ===== */
+    :root {
+      --bg-primary: #f5f5f7;
+      --bg-card: #ffffff;
+      --text-primary: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --border-color: #d2d2d7;
+      --status-normal: #34c759;
+      --status-alarm: #ff3b30;
+      --status-offline: #8e8e93;
+      --radius: 6px;
+      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* ===== 基础重置 ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== 页面容器 ===== */
+    .page-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ===== 头部区域 ===== */
+    .header {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-title h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .header-title .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ===== 导航按钮 ===== */
+    .nav-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      text-decoration: none;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      font-size: 13px;
+      font-weight: 400;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .nav-btn:hover {
+      background: var(--bg-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .nav-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* ===== 通用卡片样式 ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-header svg {
+      width: 18px;
+      height: 18px;
+      color: var(--text-secondary);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ===== 地图区域 ===== */
+    .map-section {
+      margin-bottom: 24px;
+    }
+
+    #map-chart {
+      width: 100%;
+      height: 500px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+    }
+
+    /* ===== 底部区域布局 ===== */
+    .bottom-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .bottom-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ===== 设备状态表格 ===== */
+    .device-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .device-table th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .device-table td {
+      padding: 14px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .device-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .device-table tbody tr {
+      transition: background-color 0.15s ease;
+    }
+
+    .device-table tbody tr:hover {
+      background: var(--bg-primary);
+    }
+
+    .device-table .device-id {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    /* ===== 状态指示器 ===== */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.normal {
+      background: var(--status-normal);
+    }
+
+    .status-dot.alarm {
+      background: var(--status-alarm);
+    }
+
+    .status-dot.offline {
+      background: var(--status-offline);
+    }
+
+    .status-text {
+      color: var(--text-secondary);
+    }
+
+    .status-text.normal {
+      color: var(--status-normal);
+    }
+
+    .status-text.alarm {
+      color: var(--status-alarm);
+    }
+
+    .status-text.offline {
+      color: var(--status-offline);
+    }
+
+    /* ===== 报警记录表格 ===== */
+    .alarm-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .alarm-table th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .alarm-table td {
+      padding: 14px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .alarm-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .alarm-table tbody tr {
+      transition: background-color 0.15s ease;
+    }
+
+    .alarm-table tbody tr:hover {
+      background: var(--bg-primary);
+    }
+
+    .alarm-table .time-col {
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .alarm-table .device-col {
+      font-weight: 500;
+    }
+
+    .alarm-table .zone-col {
+      color: var(--text-secondary);
+    }
+
+    /* ===== 图片按钮 ===== */
+    .img-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .img-btn:hover {
+      background: var(--text-primary);
+      color: var(--bg-card);
+      border-color: var(--text-primary);
+    }
+
+    .img-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* ===== 空状态 ===== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* ===== 弹窗 ===== */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+      background-color: var(--bg-card);
+      margin: 5% auto;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .modal-close:hover {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .modal-close svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    #modal-image {
+      display: block;
+      max-width: 100%;
+      max-height: 70vh;
+      margin: 0 auto;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 页面容器 -->
+  <div class="page-container">
+    <!-- 头部 -->
+    <div class="header">
+      <div class="header-left">
+        <div class="header-title">
+          <h1>叉车作业人车互斥报警系统</h1>
+          <div class="subtitle">实时监控</div>
+        </div>
+      </div>
+       
+      <!-- 导航 -->
+      <div class="nav-bar">
+        <a href="/devices" class="nav-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
+            <path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+          </svg>
+          设备列表
+        </a>
+        <a href="/logs" class="nav-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          业务日志
+        </a>
+      </div>
+    </div>
+
+    <!-- 地图区域 -->
+    <div class="map-section">
+      <div class="card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          <span class="card-title">工厂平面图</span>
+        </div>
+        <div id="map-chart"></div>
+      </div>
+    </div>
+
+    <!-- 底部区域 -->
+    <div class="bottom-section">
+      <!-- 设备状态 -->
+      <div class="card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
+            <path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/>
+          </svg>
+          <span class="card-title">设备状态</span>
+        </div>
+        <table class="device-table">
+          <thead>
+            <tr>
+              <th>设备ID</th>
+              <th>状态</th>
+              <th>最后更新</th>
+            </tr>
+          </thead>
+          <tbody id="device-list">
+            <tr>
+              <td colspan="3" class="empty-state">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 报警记录 -->
+      <div class="card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span class="card-title">最近报警</span>
+        </div>
+        <table class="alarm-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>设备</th>
+              <th>区域</th>
+              <th>图片</th>
+            </tr>
+          </thead>
+          <tbody id="alarm-list">
+            <tr>
+              <td colspan="4" class="empty-state">加载中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图片弹窗 -->
+  <div id="imageModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>报警截图</h3>
+        <button class="modal-close" id="modalClose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <img id="modal-image" src="" alt="Alarm image" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 注入鉴权Token -->
+  <script id="auth-token-data" type="application/json">
+    {{ app_auth_token|tojson }}
+  </script>
+  <script>
+    // 全局配置
+    const APP_AUTH_TOKEN = JSON.parse(document.getElementById('auth-token-data').textContent);
+    const AUTH_TOKEN = APP_AUTH_TOKEN || '';
+
+    // 鉴权请求头
+    function authHeaders() {
+      const headers = {};
+      if (AUTH_TOKEN) {
+        headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
+        headers['X-Auth-Token'] = AUTH_TOKEN;
+      }
+      return headers;
+    }
+
+    // 状态颜色配置
+    const COLORS = {
+      normal: '#34c759',
+      alarm: '#ff3b30',
+      offline: '#8e8e93'
+    };
+
+    // 初始化 ECharts
+    const chart = echarts.init(document.getElementById('map-chart'));
+
+    // 自定义叉车 SVG Symbol
+    function getForkliftSymbol(color) {
+      return {
+        type: 'group',
+        children: [
+          {
+            type: 'rect',
+            shape: { x: -12, y: -8, width: 24, height: 16, r: 2 },
+            style: { fill: color, stroke: color, lineWidth: 1 }
+          },
+          {
+            type: 'rect',
+            shape: { x: -8, y: -14, width: 8, height: 6 },
+            style: { fill: color, stroke: color, lineWidth: 1 }
+          },
+          {
+            type: 'circle',
+            shape: { cx: -7, cy: 10, r: 4 },
+            style: { fill: color, stroke: color, lineWidth: 1 }
+          },
+          {
+            type: 'circle',
+            shape: { cx: 7, cy: 10, r: 4 },
+            style: { fill: color, stroke: color, lineWidth: 1 }
+          },
+          {
+            type: 'rect',
+            shape: { x: 10, y: -4, width: 6, height: 3 },
+            style: { fill: color, stroke: color, lineWidth: 1 }
+          }
+        ]
+      };
+    }
+
+    // 地图配置
+    const mapOption = {
+      backgroundColor: '#ffffff',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: '#ffffff',
+        borderColor: '#d2d2d7',
+        borderWidth: 1,
+        textStyle: {
+          color: '#1d1d1f',
+          fontSize: 13
+        },
+        formatter: function(params) {
+          return `<strong>${params.data.name}</strong><br/>状态: ${params.data.statusText}<br/>最后更新: ${params.data.lastSeen}`;
+        }
+      },
+      xAxis: {
+        min: 0,
+        max: 1920,
+        show: false
+      },
+      yAxis: {
+        min: 0,
+        max: 1080,
+        inverse: true,
+        show: false
+      },
+      graphic: [{
+        type: 'image',
+        id: 'background',
+        left: 0,
+        top: 0,
+        style: {
+          image: '/Dashboard.png',
+          width: 1920,
+          height: 1080,
+          opacity: 0.3
+        }
+      }],
+      series: [{
+        type: 'scatter',
+        symbolSize: 36,
+        data: []
+      }]
+    };
+    chart.setOption(mapOption);
+
+    // Socket.io 连接
+    const socket = io({
+      auth: { token: AUTH_TOKEN }
+    });
+
+    // 监听位置更新
+    socket.on('position_update', (devices) => {
+      updateMap(devices);
+      updateDeviceList(devices);
+    });
+
+    // 更新地图
+    function updateMap(devices) {
+      const data = devices.map(dev => {
+        let color = COLORS.offline;
+        let statusText = '离线';
+        
+        if (dev.online_status === 1) {
+          if (dev.alarm_status === 1) {
+            color = COLORS.alarm;
+            statusText = '报警';
+          } else {
+            color = COLORS.normal;
+            statusText = '正常';
+          }
+        }
+
+        return {
+          name: dev.device_id,
+          value: [dev.pos_x || 0, dev.pos_y || 0],
+          itemStyle: {
+            color: color,
+            borderColor: color,
+            borderWidth: 2
+          },
+          statusText: statusText,
+          lastSeen: dev.last_seen || '-'
+        };
+      });
+
+      chart.setOption({
+        series: [{
+          data: data
+        }]
+      });
+    }
+
+    // 更新设备列表
+    function updateDeviceList(devices) {
+      const tbody = document.getElementById('device-list');
+      
+      if (!devices || devices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">暂无设备数据</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      devices.forEach(dev => {
+        let statusClass = 'offline';
+        let statusText = '离线';
+        
+        if (dev.online_status === 1) {
+          if (dev.alarm_status === 1) {
+            statusClass = 'alarm';
+            statusText = '报警';
+          } else {
+            statusClass = 'normal';
+            statusText = '正常';
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="device-id">${dev.device_id}</td>
+          <td>
+            <span class="status-indicator">
+              <span class="status-dot ${statusClass}"></span>
+              <span class="status-text ${statusClass}">${statusText}</span>
+            </span>
+          </td>
+          <td class="time-col">${dev.last_seen || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 获取最近报警
+    async function fetchRecentAlarms() {
+      try {
+        const res = await fetch('/api/recent-alarms?limit=5', {
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        
+        const tbody = document.getElementById('alarm-list');
+        if (!data.alarms || data.alarms.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无报警记录</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        data.alarms.forEach(alarm => {
+          const tr = document.createElement('tr');
+          const time = alarm.timestamp ? alarm.timestamp.split(' ')[1] : '-';
+          tr.innerHTML = `
+            <td class="time-col">${time}</td>
+            <td class="device-col">${alarm.device_id}</td>
+            <td class="zone-col">${alarm.zone || '-'}</td>
+            <td>
+              ${alarm.image_path ? `<button class="img-btn" onclick="showImage('${alarm.image_path}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                查看
+              </button>` : '-'}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        console.error('Failed to fetch alarms:', e);
+      }
+    }
+
+    // 显示图片弹窗
+    function showImage(imagePath) {
+      const modal = document.getElementById('imageModal');
+      const img = document.getElementById('modal-image');
+      img.src = '/' + imagePath;
+      modal.style.display = 'block';
+    }
+
+    // 关闭弹窗
+    document.getElementById('modalClose').onclick = function() {
+      document.getElementById('imageModal').style.display = 'none';
+    };
+    
+    window.onclick = function(event) {
+      if (event.target == document.getElementById('imageModal')) {
+        document.getElementById('imageModal').style.display = 'none';
+      }
+    };
+
+    // 初始化加载
+    async function init() {
+      try {
+        // 获取设备数据
+        const res = await fetch('/api/devices', {
+          headers: authHeaders()
+        });
+        const data = await res.json();
+        if (data.devices) {
+          updateMap(data.devices);
+          updateDeviceList(data.devices);
+        }
+        
+        // 获取报警数据
+        fetchRecentAlarms();
+        
+        // 定期刷新报警列表
+        setInterval(fetchRecentAlarms, 5000);
+      } catch (e) {
+        console.error('初始化失败:', e);
+      }
+    }
+
+    // 窗口大小变化时重绘图表
+    window.addEventListener('resize', () => {
+      chart.resize();
+    });
+
+    init();
+  </script>
+</body>
+</html>

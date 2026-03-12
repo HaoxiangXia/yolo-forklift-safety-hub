@@ -4,8 +4,9 @@ Flask + SocketIO 主程序
 
 import sys
 import time
+import random
 from datetime import datetime
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
 
 import db
@@ -18,6 +19,8 @@ from config import (
     TREND_LIMIT,
     AUTH_ENABLED,
     AUTH_TOKEN,
+    POSITION_UPDATE_INTERVAL_SEC,
+    POSITION_MOVE_RANGE,
 )
 
 app = Flask(__name__)
@@ -83,6 +86,7 @@ def offline_check_loop():
                     last_seen_time = datetime.strptime(dev['last_seen'], "%Y-%m-%d %H:%M:%S")
                     offline_seconds = (now - last_seen_time).total_seconds()
 
+
                     if offline_seconds > OFFLINE_TIMEOUT_SEC:
                         db.set_device_offline(dev['device_id'])
                         log_event("WARNING", "device.status.offline_marked", "biz", "app", f"Device marked offline", device_id=dev['device_id'], extra={"offline_seconds": offline_seconds})
@@ -98,6 +102,28 @@ def offline_check_loop():
 
 # 启动后台检测线程
 socketio.start_background_task(offline_check_loop)
+
+def position_broadcast_loop():
+    """
+    位置信息推送循环
+    定期从数据库读取设备位置并推送给前端
+    注意：位置更新由 publish_test.py 写入数据库
+    """
+    log_event("INFO", "system.background.position_broadcast_started", "ops", "app", "Position broadcast loop started")
+    
+    while True:
+        try:
+            time.sleep(POSITION_UPDATE_INTERVAL_SEC)
+            
+            # 从数据库获取最新位置
+            devices_data = db.get_all_devices_with_positions()
+            socketio.emit('position_update', devices_data)
+            
+        except Exception as e:
+            log_event("ERROR", "system.background.position_broadcast_failed", "ops", "app", f"Position broadcast error: {str(e)}")
+
+# 启动位置推送线程
+socketio.start_background_task(position_broadcast_loop)
 
 @socketio.on("connect")
 def handle_connect(auth):
@@ -121,8 +147,13 @@ def handle_disconnect():
 
 @app.route("/")
 def index():
-    """渲染主页"""
-    return render_template("index.html", app_auth_token=AUTH_TOKEN)
+    """渲染 Dashboard 主页"""
+    return render_template("dashboard.html", app_auth_token=AUTH_TOKEN)
+
+@app.route("/devices")
+def devices_page():
+    """渲染设备列表页面"""
+    return render_template("devices.html", app_auth_token=AUTH_TOKEN)
 
 @app.route("/logs")
 def logs_page():
@@ -182,6 +213,81 @@ def get_device_history(device_id):
         "counts": trend["counts"],
         "raw_history": raw_history
     })
+
+
+@app.route("/api/device/<device_id>/images")
+def get_device_images(device_id):
+    """获取设备的报警图片列表"""
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+    
+    limit = int(request.args.get("limit", 20))
+    images = db.get_device_images(device_id, limit=limit)
+    return jsonify({
+        "device_id": device_id,
+        "images": images
+    })
+
+
+@app.route("/api/device/<device_id>/latest-image")
+def get_latest_image(device_id):
+    """获取设备的最新报警图片"""
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+    
+    image = db.get_latest_image(device_id)
+    return jsonify(image if image else {})
+
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    """提供图片访问服务"""
+    return send_from_directory("images", filename)
+
+
+@app.route("/Dashboard.png")
+def serve_dashboard_map():
+    """提供工厂地图图片"""
+    # 移除 require_auth()，允许 ECharts 直接通过 URL 加载图片
+    # 或者如果需要鉴权，前端 ECharts 必须支持带 Header 的图片请求（较复杂）
+    # 为方便 Dashboard 显示，此处暂不设置鉴权
+    return send_from_directory("static", "Dashboard.png")
+
+
+# =========================
+# Dashboard API
+# =========================
+
+@app.route("/api/devices")
+def get_devices():
+    """获取所有设备位置和状态（Dashboard用）"""
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+    
+    devices = db.get_all_devices_with_positions()
+    return jsonify({"devices": devices})
+
+
+@app.route("/api/recent-alarms")
+def get_recent_alarms():
+    """获取最近报警事件（Dashboard用）"""
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+    
+    limit = int(request.args.get("limit", 5))
+    alarms = db.get_recent_alarms(limit=limit)
+    
+    # 根据坐标计算区域
+    for alarm in alarms:
+        # 这里暂时不计算区域，因为没有坐标信息
+        # 后续可以从 device 表获取最新坐标
+        alarm['zone'] = 'A区'  # 临时默认值
+    
+    return jsonify({"alarms": alarms})
 
 if __name__ == "__main__":
     log_event("INFO", "system.app.starting", "ops", "app", "Flask + SocketIO app starting")

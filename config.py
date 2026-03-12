@@ -42,3 +42,9 @@ OFFLINE_TIMEOUT_SEC = 10
 # ==============================
 HISTORY_LIMIT = 20
 TREND_LIMIT = 20
+
+# ==============================
+# 设备位置模拟配置（仅用于测试）
+# ==============================
+POSITION_UPDATE_INTERVAL_SEC = 5
+POSITION_MOVE_RANGE = 20

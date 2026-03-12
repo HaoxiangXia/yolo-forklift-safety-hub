@@ -168,12 +168,25 @@ document.addEventListener('DOMContentLoaded', () => {
             tdUpdate.textContent = formatToChinaTime(device.last_seen || device.update_time);
             tdUpdate.className = 'update-time';
 
+            const tdImage = document.createElement('td');
+            const imgBtn = document.createElement('button');
+            imgBtn.textContent = '查看图片';
+            imgBtn.style.padding = '4px 8px';
+            imgBtn.style.fontSize = '0.85em';
+            imgBtn.style.cursor = 'pointer';
+            imgBtn.onclick = (e) => {
+                e.stopPropagation();
+                openImageModal(device.device_id);
+            };
+            tdImage.appendChild(imgBtn);
+
             tr.appendChild(tdId);
             tr.appendChild(tdOnline);
             tr.appendChild(tdAlarm);
             tr.appendChild(tdError);
             tr.appendChild(tdRuntime);
             tr.appendChild(tdUpdate);
+            tr.appendChild(tdImage);
 
             // 点击行，触发图表展示
             tr.addEventListener('click', () => {
@@ -272,6 +285,65 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = function(event) {
         if (event.target == modal) {
             modal.style.display = 'none';
+        }
+    }
+
+    // ===================================
+    // 报警图片弹窗逻辑
+    // ===================================
+    const imageModal = document.getElementById('imageModal');
+    const imageModalClose = document.getElementById('imageModalClose');
+    const imageModalTitle = document.getElementById('imageModalTitle');
+    const imageList = document.getElementById('imageList');
+
+    imageModalClose.onclick = function() {
+        imageModal.style.display = 'none';
+    };
+    window.onclick = function(event) {
+        if (event.target == imageModal) {
+            imageModal.style.display = 'none';
+        }
+    };
+
+    async function openImageModal(deviceId) {
+        imageModal.style.display = 'block';
+        imageModalTitle.textContent = `报警图片 - ${deviceId}`;
+        imageList.innerHTML = '<p>加载中...</p>';
+
+        try {
+            const res = await fetch(`/api/device/${deviceId}/images`, { headers: authHeaders() });
+            if (!res.ok) throw new Error("获取图片列表失败");
+            const data = await res.json();
+
+            imageList.innerHTML = '';
+            if (!data.images || data.images.length === 0) {
+                imageList.innerHTML = '<p>暂无报警图片</p>';
+                return;
+            }
+
+            data.images.forEach(img => {
+                const imgContainer = document.createElement('div');
+                imgContainer.style.textAlign = 'center';
+                
+                const imgElement = document.createElement('img');
+                imgElement.src = `/${img.image_path}`;
+                imgElement.style.maxWidth = '300px';
+                imgElement.style.maxHeight = '300px';
+                imgElement.style.border = '1px solid #ddd';
+                imgElement.style.borderRadius = '4px';
+                
+                const imgTime = document.createElement('p');
+                imgTime.textContent = img.timestamp;
+                imgTime.style.fontSize = '0.85em';
+                imgTime.style.color = '#666';
+                
+                imgContainer.appendChild(imgElement);
+                imgContainer.appendChild(imgTime);
+                imageList.appendChild(imgContainer);
+            });
+        } catch (err) {
+            console.error(err);
+            imageList.innerHTML = `<p style="color:red">加载图片失败: ${err.message}</p>`;
         }
     }
 

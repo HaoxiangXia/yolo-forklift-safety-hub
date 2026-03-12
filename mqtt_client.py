@@ -34,9 +34,17 @@ def on_message(client, userdata, msg):
         topic_parts = msg.topic.split('/')
         device_id = topic_parts[2] if len(topic_parts) >= 3 else payload.get("device_id", "unknown")
         alarm = payload.get("alarm", 0)
+        timestamp = payload.get("timestamp", "")
         
         # 更新数据库
         changed = db.update_device_data(device_id=device_id, alarm=alarm)
+        
+        # 如果有报警且包含图片，保存图片
+        if alarm == 1 and payload.get("image"):
+            image_path = db.save_base64_image(device_id, payload["image"], timestamp)
+            if image_path:
+                log_event("INFO", "device.alarm.image_saved", "biz", "mqtt", "Alarm image saved", device_id=device_id, extra={"image_path": image_path})
+        
         log_event("INFO", "mqtt.message.processed", "biz", "mqtt", "MQTT message processed and DB updated", device_id=device_id, topic=msg.topic, extra={"changed": changed})
 
         # 通过 WebSocket 推送包含统计信息的数据包

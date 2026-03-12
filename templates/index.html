@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>叉车作业人车互斥报警系统</title>
-    <!-- 引入Socket.io -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入Socket.io (本地) -->
+    <script src="/static/socket.io.min.js"></script>
+    <script src="/static/chart.js"></script>
     <style>
       body {
         font-family: "Microsoft YaHei", sans-serif;
@@ -240,8 +240,8 @@
             <th>在线状态</th>
             <th>报警状态</th>
             <th>错误计数</th>
-            <th>系统运行时间</th>
             <th>最后更新</th>
+            <th>报警图片</th>
           </tr>
         </thead>
         <tbody>
@@ -265,9 +265,6 @@
             点击表格中的设备行可查看详细历史轨迹与统计图表。
           </li>
           <li>
-            <strong>运行时间：</strong> 由前端动态计算展示，离线后将停止计时。
-          </li>
-          <li>
             <strong>系统日志：</strong>
             点击右上角「查看业务日志」可查看全量系统报警与状态变更事件，支持分页查询。
           </li>
@@ -289,6 +286,19 @@
           </div>
           <h4>最近记录</h4>
           <div id="modalHistoryList" class="history-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 报警图片弹窗 -->
+    <div id="imageModal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="imageModalClose">×</span>
+        <div class="modal-header">
+          <h3 id="imageModalTitle">报警图片</h3>
+        </div>
+        <div class="modal-body">
+          <div id="imageList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
         </div>
       </div>
     </div>
