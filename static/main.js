@@ -217,12 +217,12 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         try {
-            const res = await fetch(`/device/${device.device_id}/history`, { headers: authHeaders() });
+            const res = await fetch(`/api/device/${device.device_id}/history`, { headers: authHeaders() });
             if (!res.ok) throw new Error("获取历史记录失败");
             const data = await res.json();
             
             renderChart(data.labels, data.counts);
-            renderHistoryList(data.raw_history);
+            renderHistoryList(data.history);
         } catch (err) {
             console.error(err);
             modalHistoryList.innerHTML = `<p style="color:red">无法获取历史记录或暂无数据</p>`;

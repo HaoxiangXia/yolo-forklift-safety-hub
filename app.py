@@ -201,7 +201,7 @@ def get_biz_logs_route():
     """兼容旧接口：仅返回业务日志"""
     return get_logs_route()
 
-@app.route("/device/<device_id>/history")
+@app.route("/api/device/<device_id>/history")
 def get_device_history(device_id):
     """返回设备详情，包括原始历史和趋势统计"""
     auth_failed = require_auth()
@@ -212,12 +212,23 @@ def get_device_history(device_id):
     trend = db.get_device_alarm_trend(device_id, limit=TREND_LIMIT)
     # 原始明细记录
     raw_history = db.get_device_history_raw(device_id, limit=HISTORY_LIMIT)
+    
+    # 转换为前端期望的格式：保留机器字段并补充事件文本
+    history = []
+    for item in raw_history:
+        alarm_value = 1 if item.get("alarm") == 1 else 0
+        history.append({
+            "timestamp": item.get("timestamp", ""),
+            "alarm": alarm_value,
+            "alarm_status": alarm_value,
+            "event": "报警" if alarm_value == 1 else "正常"
+        })
 
     return jsonify({
         "device_id": device_id,
         "labels": trend["labels"],
         "counts": trend["counts"],
-        "raw_history": raw_history
+        "history": history
     })
 
 

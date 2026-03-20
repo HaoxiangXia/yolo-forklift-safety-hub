@@ -812,7 +812,7 @@
         const imageList = document.getElementById('imageList');
         if (data.images && data.images.length > 0) {
           imageList.innerHTML = data.images.map(img => 
-            `<img src="/${img}" alt="报警图片" onclick="showFullImage('/${img}')" />`
+            `<img src="/${img.image_path}" alt="报警图片" onclick="showFullImage('/${img.image_path}')" />`
           ).join('');
         } else {
           imageList.innerHTML = '<div class="empty-state">暂无报警图片</div>';

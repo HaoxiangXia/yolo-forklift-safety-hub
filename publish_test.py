@@ -24,6 +24,10 @@ MQTT_PORT = 1883
 # 模拟三个不同的设备
 DEVICES = ["FORK-001", "FORK-002", "FORK-003"]
 
+# 图片配置（模拟用，不真正上传）
+IMAGE_URL = "/images/alarms/bqb.jpg"
+UPLOAD_DEVICE = "FORK-003"  # 只有这个设备携带图片
+
 def simulate_publish():
     client = mqtt.Client()
     
@@ -65,6 +69,11 @@ def simulate_publish():
                     "outer_intrusion": 1 if random.random() > 0.9 else 0,
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
+                
+                # FORK-003 报警触发时添加图片路径
+                if dev_id == UPLOAD_DEVICE and next_state == 1 and current_state == 0:
+                    payload["image_url"] = IMAGE_URL
+                    print(f"[Image] {dev_id} alarm triggered with image: {IMAGE_URL}")
                 
                 # 发布到 Topic: factory/forklift/DEVICE_ID/alarm
                 topic = f"factory/forklift/{dev_id}/alarm"
