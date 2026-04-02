@@ -37,11 +37,28 @@ def on_message(client, userdata, msg):
         timestamp = payload.get("timestamp", "")
         
         # 更新数据库
-        changed = db.update_device_data(device_id=device_id, alarm=alarm)
+        changed = db.update_device_data(
+            device_id=device_id, 
+            alarm=alarm, 
+            mqtt_timestamp=timestamp
+        )
         
         # 如果有报警且包含图片URL（MQTT+HTTP混合方案）
         # 图片已通过HTTP上传，这里只记录图片URL到数据库
-        if alarm == 1 and payload.get("image_url"):
+        if alarm == 1 and isinstance(payload.get("image_urls"), list) and payload.get("image_urls"):
+            image_urls = payload.get("image_urls", [])
+            for image_url in image_urls:
+                if not isinstance(image_url, str):
+                    continue
+                if image_url.startswith("/images/"):
+                    image_path = image_url[1:]
+                else:
+                    image_path = image_url
+                db.save_alarm_image(device_id, image_path, timestamp)
+            log_event("INFO", "device.alarm.image_urls_recorded", "biz", "mqtt",
+                      "Alarm image URLs recorded", device_id=device_id,
+                      extra={"image_urls": image_urls})
+        elif alarm == 1 and payload.get("image_url"):
             image_url = payload["image_url"]
             # 从URL中提取文件路径
             if image_url.startswith("/images/"):

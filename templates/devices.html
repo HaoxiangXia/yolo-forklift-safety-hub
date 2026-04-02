@@ -308,7 +308,7 @@
               <th>在线状态</th>
               <th>当前区域</th>
               <th>报警状态</th>
-              <th>错误计数</th>
+              <th>报警计数</th>
               <th>最后更新</th>
               <th>报警图片</th>
             </tr>
@@ -428,7 +428,10 @@
         const onlineClass = dev.online_status === 1 ? 'normal' : 'offline';
         const onlineText = dev.online_status === 1 ? `在线 (${zone})` : `离线 (${zone})`;
         const alarmClass = dev.alarm_status === 1 ? 'alarm' : 'normal';
-        const alarmText = dev.alarm_status === 1 ? '报警' : '正常';
+        const alarmDuration = getAlarmDurationText(dev);
+        const alarmText = dev.alarm_status === 1
+          ? (alarmDuration ? `报警(${alarmDuration})` : '报警')
+          : '正常';
 
         const tr = document.createElement('tr');
         tr.onclick = () => showDeviceDetail(dev.device_id);
@@ -477,11 +480,88 @@
         }
 
         updateHourlyChart(data, history);
+
+        const sessRes = await fetch(`/api/device/${deviceId}/alarm-sessions`, { headers: authHeaders() });
+        if (sessRes.ok) {
+          const sessData = await sessRes.json();
+          renderAlarmDurationInfo(sessData);
+        }
       } catch (e) {
         document.getElementById('modalHistoryList').innerHTML = '<div class="empty-state">加载失败，请重试 / Load failed</div>';
       }
 
       document.getElementById('deviceModal').style.display = 'block';
+    }
+
+    function formatDuration(seconds) {
+      if (seconds == null || seconds <= 0) return '0秒';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      let parts = [];
+      if (h > 0) parts.push(`${h}小时`);
+      if (m > 0) parts.push(`${m}分`);
+      if (s > 0 || parts.length === 0) parts.push(`${s}秒`);
+      return parts.join('');
+    }
+
+    function formatDurationShort(seconds) {
+      if (seconds == null || seconds <= 0) return '0s';
+      const s = Math.floor(seconds);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = Math.floor(s % 60);
+      let parts = '';
+      if (h > 0) parts += `${h}h`;
+      if (m > 0 || h > 0) parts += `${m}m`;
+      parts += `${sec}s`;
+      return parts;
+    }
+
+    function getAlarmDurationSeconds(dev) {
+      if (!dev || dev.alarm_status !== 1) return null;
+      if (dev.alarm_start_time) {
+        const start = new Date(String(dev.alarm_start_time).replace(' ', 'T'));
+        if (!Number.isNaN(start.getTime())) {
+          return (Date.now() - start.getTime()) / 1000;
+        }
+      }
+      if (dev.current_duration_sec != null) return Number(dev.current_duration_sec);
+      return null;
+    }
+
+    function getAlarmDurationText(dev) {
+      const seconds = getAlarmDurationSeconds(dev);
+      if (seconds == null) return '';
+      return formatDurationShort(seconds);
+    }
+
+    function renderAlarmDurationInfo(sessData) {
+      const stats = sessData.stats || {};
+      const active = sessData.active_session;
+      const currentDur = sessData.current_duration_sec;
+
+      const existing = document.getElementById('alarmDurationInfo');
+      if (existing) existing.remove();
+
+      let infoHtml = '<div id="alarmDurationInfo" style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;border:1px solid #e0e0e0;">';
+      infoHtml += '<p style="font-weight:600;margin-bottom:8px;font-size:13px;">报警时长统计</p>';
+
+      if (active && currentDur != null) {
+        infoHtml += `<p style="color:#ff3b30;font-weight:500;font-size:13px;">当前报警已持续: <strong>${formatDuration(currentDur)}</strong></p>`;
+      }
+
+      infoHtml += `<p style="font-size:12px;color:#666;">报警总次数: ${stats.total_sessions || 0} | 平均时长: ${formatDuration(stats.avg_duration)} | 最长: ${formatDuration(stats.max_duration)}</p>`;
+      infoHtml += '</div>';
+
+      const historyList = document.getElementById('modalHistoryList');
+      historyList.parentNode.insertBefore(createElementFromHtml(infoHtml), historyList);
+    }
+
+    function createElementFromHtml(html) {
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      return template.content.firstChild;
     }
 
     // Device detail chart requirement:
@@ -604,6 +684,13 @@
       upsertDevices(devices || []);
       renderDeviceTable();
     });
+
+    // Refresh alarm durations every second for display
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        renderDeviceTable();
+      }
+    }, 1000);
 
     async function init() {
       try {

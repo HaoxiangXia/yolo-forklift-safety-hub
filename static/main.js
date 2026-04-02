@@ -223,10 +223,97 @@ document.addEventListener('DOMContentLoaded', () => {
             
             renderChart(data.labels, data.counts);
             renderHistoryList(data.history);
+            
+            const sessRes = await fetch(`/api/device/${device.device_id}/alarm-sessions`, { headers: authHeaders() });
+            if (sessRes.ok) {
+                const sessData = await sessRes.json();
+                renderAlarmDurationInfo(sessData);
+            }
         } catch (err) {
             console.error(err);
             modalHistoryList.innerHTML = `<p style="color:red">无法获取历史记录或暂无数据</p>`;
         }
+    }
+
+    function formatDuration(seconds) {
+        if (seconds == null || seconds <= 0) return '0秒';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        let parts = [];
+        if (h > 0) parts.push(`${h}小时`);
+        if (m > 0) parts.push(`${m}分`);
+        if (s > 0 || parts.length === 0) parts.push(`${s}秒`);
+        return parts.join('');
+    }
+
+    function renderAlarmDurationInfo(sessData) {
+        const stats = sessData.stats || {};
+        const active = sessData.active_session;
+        const currentDur = sessData.current_duration_sec;
+        
+        let infoHtml = '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;border:1px solid #e0e0e0;">';
+        infoHtml += '<p style="font-weight:600;margin-bottom:8px;font-size:13px;">报警时长统计</p>';
+        
+        if (active && currentDur != null) {
+            infoHtml += `<p style="color:#ff3b30;font-weight:500;font-size:13px;">当前报警已持续: <strong>${formatDuration(currentDur)}</strong></p>`;
+        }
+        
+        infoHtml += `<p style="font-size:12px;color:#666;">报警总次数: ${stats.total_sessions || 0} | 平均时长: ${formatDuration(stats.avg_duration)} | 最长: ${formatDuration(stats.max_duration)}</p>`;
+        infoHtml += '</div>';
+        
+        const existing = document.getElementById('alarmDurationInfo');
+        if (existing) existing.remove();
+        
+        const div = document.createElement('div');
+        div.id = 'alarmDurationInfo';
+        div.innerHTML = infoHtml;
+        
+        const historyList = document.getElementById('modalHistoryList');
+        historyList.parentNode.insertBefore(div, historyList);
+    }
+        } catch (err) {
+            console.error(err);
+            modalHistoryList.innerHTML = `<p style="color:red">无法获取历史记录或暂无数据</p>`;
+        }
+    }
+
+    function formatDuration(seconds) {
+        if (seconds == null || seconds <= 0) return '0秒';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        let parts = [];
+        if (h > 0) parts.push(`${h}小时`);
+        if (m > 0) parts.push(`${m}分`);
+        if (s > 0 || parts.length === 0) parts.push(`${s}秒`);
+        return parts.join('');
+    }
+
+    function renderAlarmDurationInfo(sessData) {
+        const stats = sessData.stats || {};
+        const active = sessData.active_session;
+        const currentDur = sessData.current_duration_sec;
+        
+        let infoHtml = '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;border:1px solid #e0e0e0;">';
+        infoHtml += '<p style="font-weight:600;margin-bottom:8px;font-size:13px;">报警时长统计</p>';
+        
+        if (active && currentDur != null) {
+            infoHtml += `<p style="color:#ff3b30;font-weight:500;font-size:13px;">当前报警已持续: <strong>${formatDuration(currentDur)}</strong></p>`;
+        }
+        
+        infoHtml += `<p style="font-size:12px;color:#666;">报警总次数: ${stats.total_sessions || 0} | 平均时长: ${formatDuration(stats.avg_duration)} | 最长: ${formatDuration(stats.max_duration)}</p>`;
+        infoHtml += '</div>';
+        
+        const existing = document.getElementById('alarmDurationInfo');
+        if (existing) existing.remove();
+        
+        const div = document.createElement('div');
+        div.id = 'alarmDurationInfo';
+        div.innerHTML = infoHtml;
+        
+        const historyList = document.getElementById('modalHistoryList');
+        historyList.parentNode.insertBefore(div, historyList);
     }
 
     function renderChart(labels, counts) {
@@ -263,11 +350,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderHistoryList(historyData) {
+        const existing = document.getElementById('alarmDurationInfo');
+        if (existing) existing.remove();
+        
         modalHistoryList.innerHTML = '';
         if (!historyData || historyData.length === 0) {
             modalHistoryList.innerHTML = '<p>暂无记录</p>';
             return;
         }
+
+        historyData.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            const statusText = item.alarm === 1 ? '<span style="color:red;font-weight:bold;">报警</span>' : '<span style="color:green;">正常</span>';
+            div.innerHTML = `<span>状态: ${statusText}</span> <span style="color:#666;font-size:0.9em;">上报时间: ${formatToChinaTime(item.timestamp)}</span>`;
+            modalHistoryList.appendChild(div);
+        });
+    }
 
         historyData.forEach(item => {
             const div = document.createElement('div');

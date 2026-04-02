@@ -2,3 +2,4 @@ flask
 flask-socketio
 paho-mqtt
 simple-websocket
+requests

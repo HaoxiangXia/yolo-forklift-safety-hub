@@ -7,7 +7,8 @@ import re
 import sys
 import time
 import random
-from datetime import datetime
+import json
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
 
@@ -279,8 +280,9 @@ def _allowed_image_file(filename):
     return ext in ALLOWED_IMAGE_EXTENSIONS
 
 
-@app.route("/api/upload-image", methods=["POST"])
-def upload_image():
+@app.route("/api/upload-image-legacy", methods=["POST"])
+def upload_image_legacy():
+    return jsonify({"error": "单图上传已废弃，请使用 /api/upload-image 批量上传"}), 410
     """
     接收设备上传的报警图片
     用于MQTT+HTTP混合方案：设备先通过HTTP上传图片，再通过MQTT发送报警+图片URL
@@ -354,6 +356,102 @@ def upload_image():
         return jsonify({"error": f"图片上传失败: {str(e)}"}), 500
 
 
+@app.route("/api/upload-image", methods=["POST"])
+def upload_image():
+    """
+    批量上传报警图片（仅批量）
+    multipart/form-data:
+    - device_id: 设备ID
+    - images: 多文件列表
+    - base_timestamp: 可选，最后一张的时间（%Y-%m-%d %H:%M:%S）
+    - image_timestamps: 可选，JSON数组，逐张时间戳
+    返回：
+    - image_urls: 图片URL数组（顺序与上传一致）
+    """
+    # 设备端直传，暂不启用鉴权
+    # auth_failed = require_auth()
+    # if auth_failed: return auth_failed
+
+    device_id = request.form.get("device_id")
+    if not device_id:
+        return jsonify({"error": "缺少device_id参数"}), 400
+
+    device_id = re.sub(r'[^\w\-]', '', device_id)
+    if not device_id:
+        return jsonify({"error": "无效的device_id"}), 400
+
+    if request.files.get("image"):
+        return jsonify({"error": "单图上传已禁用，请使用images批量上传"}), 400
+
+    image_files = request.files.getlist("images")
+    if not image_files:
+        return jsonify({"error": "缺少images参数"}), 400
+
+    base_timestamp_raw = (request.form.get("base_timestamp") or "").strip()
+    image_timestamps_raw = (request.form.get("image_timestamps") or "").strip()
+    timestamps = []
+
+    try:
+        if image_timestamps_raw:
+            ts_list = json.loads(image_timestamps_raw)
+            if not isinstance(ts_list, list):
+                return jsonify({"error": "image_timestamps必须是JSON数组"}), 400
+            if len(ts_list) != len(image_files):
+                return jsonify({"error": "image_timestamps长度与图片数量不匹配"}), 400
+            for ts in ts_list:
+                timestamps.append(datetime.strptime(str(ts), "%Y-%m-%d %H:%M:%S"))
+        else:
+            if base_timestamp_raw:
+                base_dt = datetime.strptime(base_timestamp_raw, "%Y-%m-%d %H:%M:%S")
+            else:
+                base_dt = datetime.now()
+            total = len(image_files)
+            for i in range(total):
+                delta_sec = (total - 1 - i)
+                timestamps.append(base_dt - timedelta(seconds=delta_sec))
+    except ValueError:
+        return jsonify({"error": "时间格式错误，请使用 YYYY-MM-DD HH:MM:SS"}), 400
+    except json.JSONDecodeError:
+        return jsonify({"error": "image_timestamps JSON解析失败"}), 400
+
+    image_urls = []
+    try:
+        for idx, image_file in enumerate(image_files):
+            if not _allowed_image_file(image_file.filename):
+                return jsonify({"error": "不支持的图片格式"}), 400
+
+            image_file.seek(0, 2)
+            file_size = image_file.tell()
+            image_file.seek(0)
+
+            max_size_bytes = MAX_IMAGE_SIZE_MB * 1024 * 1024
+            if file_size > max_size_bytes:
+                return jsonify({"error": f"文件大小超过{MAX_IMAGE_SIZE_MB}MB限制"}), 400
+
+            ts = timestamps[idx]
+            ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+            safe_ts = ts.strftime("%Y-%m-%d_%H-%M-%S")
+            ext = image_file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{device_id}_{safe_ts}_{idx}.{ext}"
+            filepath = os.path.join("images", "alarms", filename)
+
+            image_file.save(filepath)
+
+            db.save_alarm_image(device_id, filepath, ts_str)
+            log_event("INFO", "device.image.uploaded", "biz", "app",
+                      "Image uploaded via HTTP", device_id=device_id,
+                      extra={"image_path": filepath})
+
+            image_urls.append(f"/images/alarms/{filename}")
+
+        return jsonify({"image_urls": image_urls})
+
+    except Exception as e:
+        log_event("ERROR", "device.image.upload_failed", "biz", "app",
+                  "Image upload failed", device_id=device_id, error=str(e))
+        return jsonify({"error": f"图片上传失败: {str(e)}"}), 500
+
+
 @app.route("/Dashboard.png")
 def serve_dashboard_map():
     """提供工厂地图图片"""
@@ -395,6 +493,32 @@ def get_recent_alarms():
         alarm['zone'] = 'A区'  # 临时默认值
     
     return jsonify({"alarms": alarms})
+
+
+@app.route("/api/device/<device_id>/alarm-sessions")
+def get_device_alarm_sessions(device_id):
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+    
+    limit = int(request.args.get("limit", 20))
+    sessions = db.get_alarm_sessions(device_id, limit=limit)
+    stats = db.get_alarm_duration_stats(device_id)
+    active = db.get_active_alarm_session(device_id)
+    
+    current_duration = None
+    if active:
+        start_dt = datetime.strptime(active['start_time'], "%Y-%m-%d %H:%M:%S")
+        current_duration = (datetime.now() - start_dt).total_seconds()
+    
+    return jsonify({
+        "device_id": device_id,
+        "sessions": sessions,
+        "stats": stats,
+        "active_session": active,
+        "current_duration_sec": round(current_duration, 1) if current_duration else None
+    })
+
 
 if __name__ == "__main__":
     log_event("INFO", "system.app.starting", "ops", "app", "Flask + SocketIO app starting")
