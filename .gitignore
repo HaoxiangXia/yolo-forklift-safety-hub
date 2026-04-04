@@ -11,5 +11,7 @@ __pycache__/
 images/alarms
 
 docs/
+.kilo
 .kilocode
+.vscode
 AGENTS.MD
