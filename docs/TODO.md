@@ -148,8 +148,9 @@
 
 ### 20. 已知问题修复
 - [x] ~~前端从 Jinja2 迁移至 Vue 3 SPA~~（已完成）
-- [x] ~~Glassmorphism + Aurora 背景~~（已完成）
+- [x] ~~Glassmorphism + Static Aurora 背景~~（已完成）
 - [x] ~~LineChart 可复用组件~~（已完成）
+- [x] ~~统一左侧导航栏 + logo~~（已完成）
 - [ ] Dashboard 折线图使用真实数据（非随机）
 - [ ] `publish_test.py` MQTT 客户端使用 `CallbackAPIVersion.VERSION2`
 - [ ] 静态资源路由 404 处理

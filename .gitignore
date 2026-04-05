@@ -10,8 +10,9 @@ __pycache__/
 # 报警图片
 images/alarms
 
-docs/
+ignore/
 .kilo
 .kilocode
 .vscode
+.ruff_cache
 AGENTS.MD

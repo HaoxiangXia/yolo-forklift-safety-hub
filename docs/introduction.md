@@ -32,12 +32,16 @@ MQTT Broker → mqtt_client.py → db.py (SQLite) → Socket.IO → Vue 3 前端
 ### 2.3 前端架构
 
 - **框架**：Vue 3 (Composition API) + Vue Router + Vite
-- **UI 风格**：Glassmorphism（毛玻璃）+ Aurora Gradient（极光流动背景）
+- **UI 风格**：Glassmorphism（毛玻璃）+ Static Aurora Gradient（静态极光渐变背景）
+- **字体**：Outfit（展示）+ DM Sans（正文）+ JetBrains Mono（等宽）
 - **页面组件**：
   - **Dashboard（仪表盘）**：数字孪生地图 + 报警趋势图 + KPI 数据卡片
   - **Devices（设备列表）**：状态筛选 + 设备详情 + 报警图片查看
   - **Logs（业务日志）**：分页查询 + 多条件筛选（级别/分类/设备）
-- **可复用组件**：LineChart.vue（ECharts 折线图，支持自定义数据、颜色、线宽）
+- **可复用组件**：
+  - LineChart.vue（ECharts 折线图，支持自定义数据、颜色、线宽）
+  - AuroraBackground.vue（静态极光渐变背景）
+  - SidebarNav.vue（左侧导航栏，含 logo）
 
 ## 三、已实现功能
 
@@ -91,9 +95,10 @@ MQTT Broker → mqtt_client.py → db.py (SQLite) → Socket.IO → Vue 3 前端
 ### 4.3 用户体验
 
 - Vue 3 SPA 无刷新页面切换
-- 毛玻璃 + 极光流动背景现代 UI 设计
+- 毛玻璃 + 静态极光渐变背景现代 UI 设计
 - 响应式布局，适配桌面与移动端
 - ECharts 图表支持交互（悬停提示、悬停加粗）
+- 统一的左侧导航栏 + logo 品牌标识
 
 ## 五、应用场景
 
