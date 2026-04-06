@@ -1,6 +1,0 @@
-flask
-flask-socketio
-paho-mqtt
-simple-websocket
-requests
-openai  #暂定

@@ -1,6 +1,10 @@
 # 缓存
 __pycache__/
 
+# uv 虚拟环境
+.venv/
+uv.lock
+
 # Vite 缓存
 vue-app/.vite/
 vue-app/node_modules/
