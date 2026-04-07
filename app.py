@@ -841,6 +841,42 @@ def get_device_alarm_sessions(device_id):
         }
     )
 
+@app.route('/api/trend')
+def trend():
+    import random
+    from flask import request, jsonify
+
+    t = request.args.get('type', 'day')
+
+    # ===== 时间轴 =====
+    if t == 'day':
+        labels = [f"{i}:00" for i in range(24)]
+    elif t == 'week':
+        labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+    else:
+        labels = [str(i+1) for i in range(30)]
+
+    # ===== 模拟 publish_test 的报警逻辑 =====
+    def gen():
+        state = 0
+        data = []
+        for _ in labels:
+            if state == 1:
+                state = 1 if random.random() < 0.7 else 0
+            else:
+                state = 1 if random.random() < 0.15 else 0
+
+            val = random.randint(1, 3) if state == 1 else random.randint(0, 1)
+            data.append(val)
+        return data
+
+    return jsonify({
+        "labels": labels,
+        "fork1": gen(),
+        "fork2": gen(),
+        "fork3": gen()
+    })
+
 
 if __name__ == "__main__":
     log_event(
