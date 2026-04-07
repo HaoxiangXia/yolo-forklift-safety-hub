@@ -78,6 +78,15 @@ const menuItems = [
       <polyline points="3 17 9 11 13 15 21 7"/>
       <polyline points="14 7 21 7 21 14"/>
     </svg>`
+  },
+   {
+    path: '/history',
+    label: '报警历史',
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12h18"/>
+      <path d="M3 6h18"/>
+      <path d="M3 18h18"/>
+    </svg>`
   }
 ]
 
