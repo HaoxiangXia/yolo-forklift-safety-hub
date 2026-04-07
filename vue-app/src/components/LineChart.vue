@@ -41,20 +41,18 @@ function renderChart() {
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255,255,255,0.85)',
-      borderColor: 'rgba(255,255,255,0.3)',
+      borderColor: 'rgba(243, 238, 238, 0.86)',
       borderWidth: 1,
-      textStyle: { color: '#5c5678', fontSize: 12 },
+      textStyle: { color: '#dad8e6', fontSize: 12 },
     },
     axisPointer: {
       type: 'shadow',
-      shadowStyle: {
-        color: 'rgba(184, 169, 232, 0.12)',
-      },
+      shadowStyle: { color: 'rgba(184, 169, 232, 0.12)' },
     },
     legend: props.showLegend
       ? {
           data: props.series.map(s => s.name),
-          textStyle: { color: '#9890b0', fontSize: 11 },
+          textStyle: { color: '#0f0f10', fontSize: 15 },
           top: 0,
           itemWidth: 14,
           itemHeight: 3,
@@ -86,10 +84,7 @@ function renderChart() {
         smooth: 0.4,
         showSymbol: false,
         lineStyle: { color, width: s.lineWidth || 3 },
-        emphasis: {
-          focus: 'series',
-          lineStyle: { width: s.emphasisWidth || 5 },
-        },
+        emphasis: { focus: 'series', lineStyle: { width: s.emphasisWidth || 5 } },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: areaColor[0] },
@@ -98,6 +93,26 @@ function renderChart() {
         },
       }
     }),
+    // 🔹 新增 DataZoom 缩放功能
+    dataZoom: [
+      {
+        type: 'inside', // 鼠标滚轮 / 手势缩放
+        start: 80,       // 默认显示最后 20%
+        end: 100,
+        zoomLock: false,
+      },
+      {
+        type: 'slider',  // 底部滑动条
+        height: 20,
+        bottom: 0,
+        handleIcon:
+          'M8.2,13.3h-1.6v-2.6h1.6V13.3z', // 简洁手柄
+        handleSize: '120%',
+        start: 80,
+        end: 100,
+        showDetail: false, // 隐藏阴影
+      }
+    ]
   })
 }
 

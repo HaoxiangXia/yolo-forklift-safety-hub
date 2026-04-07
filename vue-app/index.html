@@ -1,35 +1,13 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import Dashboard from '../views/Dashboard.vue'
-import Devices from '../views/Devices.vue'
-import Logs from '../views/Logs.vue'
-import Trend from '../views/Trend.vue'
-
-const routes = [
-  {
-    path: '/',
-    name: 'Dashboard',
-    component: Dashboard
-  },
-  {
-    path: '/devices',
-    name: 'Devices',
-    component: Devices
-  },
-  {
-    path: '/logs',
-    name: 'Logs',
-    component: Logs
-  },
-  {
-    path: '/trend',   // ✅ 新增
-    name: 'Trend',
-    component: Trend
-  }
-]
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
-
-export default router
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>叉车作业人车互斥报警系统</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
