@@ -831,7 +831,7 @@ def get_recent_alarms(limit=5):
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT a.device_id, a.timestamp, a.alarm,
+        SELECT a.id, a.device_id, a.timestamp, a.alarm,
                (SELECT image_path FROM alarm_images ai
                 WHERE ai.device_id = a.device_id
                 ORDER BY ai.timestamp DESC LIMIT 1) as image_path,

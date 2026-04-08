@@ -453,6 +453,15 @@ def logs_page():
     abort(404)
 
 
+@app.route("/history")
+def history_page():
+    """返回Vue前端的index.html"""
+    if _vue_dist_ready():
+        resp = make_response(send_from_directory(VUE_DIST_DIR, "index.html"))
+        return _attach_auth_cookie(resp)
+    abort(404)
+
+
 
 
 @app.route("/trend")
@@ -833,6 +842,13 @@ def get_recent_alarms():
     alarms = db.get_recent_alarms(limit=limit)
 
     devices = {d["device_id"]: d for d in db.get_all_devices_with_positions()}
+    alarms = _decorate_alarm_records(alarms, devices)
+
+    return jsonify({"alarms": alarms})
+
+
+def _decorate_alarm_records(alarms, devices=None):
+    devices = devices or {d["device_id"]: d for d in db.get_all_devices_with_positions()}
 
     for alarm in alarms:
         device = devices.get(alarm["device_id"], {})
@@ -843,11 +859,24 @@ def get_recent_alarms():
         else:
             alarm["zone"] = "B区" if pos_y < 500 else "D区"
 
-    for alarm in alarms:
         alarm["description"] = alarm.pop("image_description", None)
         alarm["description_status"] = alarm.pop("image_description_status", None)
 
-    return jsonify({"alarms": alarms})
+    return alarms
+
+
+@app.route("/api/history")
+def get_history_route():
+    """报警历史列表（用于 History 页面）"""
+    auth_failed = require_auth()
+    if auth_failed:
+        return auth_failed
+
+    limit = int(request.args.get("limit", 50))
+    alarms = db.get_recent_alarms(limit=limit)
+    devices = {d["device_id"]: d for d in db.get_all_devices_with_positions()}
+    alarms = _decorate_alarm_records(alarms, devices)
+    return jsonify({"items": alarms})
 
 
 @app.route("/api/dashboard/alarm-trend")
