@@ -23,7 +23,7 @@ from flask_socketio import SocketIO
 import db
 import mqtt_client
 from logger import log_event, get_latest_biz_logs, get_logs_by_page
-from llm_client import describe_image
+from llm_client import analyze_alarm_image
 from config import (
     OFFLINE_CHECK_INTERVAL_SEC,
     OFFLINE_TIMEOUT_SEC,
@@ -235,9 +235,30 @@ def _resolve_alarm_image_path(image_path):
     return abs_path
 
 
+def _fallback_analysis_for_error(error_text):
+    """Return a short, honest placeholder when the upstream AI service is unreachable."""
+    if not error_text:
+        return None
+    lower = str(error_text).lower()
+    network_markers = (
+        "connection error",
+        "apiconnectionerror",
+        "ssl",
+        "tls",
+        "wrong version number",
+        "unexpected eof while reading",
+        "connecterror",
+        "relay blocked image request",
+        "http 468",
+    )
+    if any(marker in lower for marker in network_markers):
+        return "AI服务暂不可用"
+    return None
+
+
 def alarm_image_description_loop():
     """
-    后台异步生成报警图片描述
+    后台异步生成报警图片分析
     """
     if not LLM_ENABLED:
         return
@@ -253,10 +274,10 @@ def alarm_image_description_loop():
 
     log_event(
         "INFO",
-        "llm.image.describe.started",
+        "llm.image.analysis.started",
         "ops",
         "llm",
-        "Alarm image description loop started",
+        "Alarm image analysis loop started",
         extra={"model": LLM_MODEL, "poll_sec": LLM_POLL_INTERVAL_SEC},
     )
 
@@ -278,51 +299,71 @@ def alarm_image_description_loop():
                     )
                     continue
 
-                description = None
+                analysis = None
                 last_error = None
                 for _ in range(max(1, LLM_MAX_RETRIES)):
                     try:
-                        description = describe_image(abs_path)
+                        analysis = analyze_alarm_image(abs_path)
                         break
                     except Exception as exc:
                         last_error = str(exc)
                         time.sleep(1)
 
-                if description:
-                    db.mark_alarm_image_description(image_id, description, LLM_MODEL)
+                if analysis:
+                    db.mark_alarm_image_description(image_id, analysis, LLM_MODEL)
                     log_event(
                         "INFO",
-                        "llm.image.describe.success",
+                        "llm.image.analysis.generated",
                         "biz",
                         "llm",
-                        "Alarm image description generated",
+                        f"AI分析：{analysis}",
                         device_id=device_id,
-                        extra={"image_path": image_path},
+                        extra={
+                            "image_path": image_path,
+                            "model": LLM_MODEL,
+                            "analysis": analysis,
+                        },
                     )
                 else:
-                    db.mark_alarm_image_failed(
-                        image_id,
-                        last_error or "LLM failed",
-                        LLM_MODEL,
-                    )
-                    log_event(
-                        "ERROR",
-                        "llm.image.describe.failed",
-                        "ops",
-                        "llm",
-                        "Alarm image description failed",
-                        device_id=device_id,
-                        error=last_error or "LLM failed",
-                        extra={"image_path": image_path},
-                    )
+                    fallback_analysis = _fallback_analysis_for_error(last_error)
+                    if fallback_analysis:
+                        db.mark_alarm_image_description(
+                            image_id, fallback_analysis, "fallback-unavailable"
+                        )
+                        log_event(
+                            "WARNING",
+                            "llm.image.analysis.fallback",
+                            "biz",
+                            "llm",
+                            f"AI分析降级：{fallback_analysis}",
+                            device_id=device_id,
+                            error=last_error or "LLM unavailable",
+                            extra={"image_path": image_path},
+                        )
+                    else:
+                        db.mark_alarm_image_failed(
+                            image_id,
+                            last_error or "LLM failed",
+                            LLM_MODEL,
+                        )
+                        log_event(
+                            "ERROR",
+                            "llm.image.analysis.failed",
+                            "ops",
+                            "llm",
+                            "Alarm image analysis failed",
+                            device_id=device_id,
+                            error=last_error or "LLM failed",
+                            extra={"image_path": image_path},
+                        )
 
         except Exception as e:
             log_event(
                 "ERROR",
-                "llm.image.describe.loop_failed",
+                "llm.image.analysis.loop_failed",
                 "ops",
                 "llm",
-                f"LLM description loop error: {str(e)}",
+                f"LLM analysis loop error: {str(e)}",
             )
 
 
@@ -439,9 +480,9 @@ def serve_vite_svg():
     return send_from_directory(STATIC_DIR, "vite.svg")
 
 
-# @app.route("/DashboardLegacy.png")
+@app.route("/Dashboard.png")
 def serve_dashboard_png():
-    """提供Dashboard背景图片"""
+    """兼容前端历史路径：返回 Dashboard 背景图。"""
     return send_from_directory(app.root_path, "map.jpg")
 
 
@@ -762,10 +803,8 @@ def upload_image():
 @app.route("/map.jpg")
 def serve_dashboard_map():
     """提供工厂地图图片"""
-    # 移除 require_auth()，允许 ECharts 直接通过 URL 加载图片
-    # 或者如果需要鉴权，前端 ECharts 必须支持带 Header 的图片请求（较复杂）
-    # 为方便 Dashboard 显示，此处暂不设置鉴权
-    return send_from_directory("static", "map.jpg")
+    # 允许 ECharts 直接加载图片，不附加鉴权逻辑。
+    return send_from_directory(app.root_path, "map.jpg")
 
 
 # =========================
@@ -898,6 +937,3 @@ if __name__ == "__main__":
     )
     print("Starting Flask + SocketIO app on http://0.0.0.0:5000")
     socketio.run(app, host="0.0.0.0", port=5000, debug=False)
-
-
-

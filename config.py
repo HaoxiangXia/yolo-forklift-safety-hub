@@ -73,10 +73,11 @@ MAX_IMAGE_SIZE_MB = 16
 # ==============================
 # LLM 多模态描述配置
 # ==============================
-LLM_ENABLED = _get_bool("LLM_ENABLED", False)
+OPENAI_API_KEY = _get_str("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = _get_str("OPENAI_BASE_URL", "")
+LLM_ENABLED = _get_bool("LLM_ENABLED", bool(OPENAI_API_KEY))
 LLM_PROVIDER = _get_str("LLM_PROVIDER", "openai")
 LLM_MODEL = _get_str("LLM_MODEL", "gpt-4.1-mini")
-OPENAI_API_KEY = _get_str("OPENAI_API_KEY", "")
 LLM_TIMEOUT_SEC = _get_int("LLM_TIMEOUT_SEC", 20)
 LLM_MAX_RETRIES = _get_int("LLM_MAX_RETRIES", 2)
 LLM_POLL_INTERVAL_SEC = _get_int("LLM_POLL_INTERVAL_SEC", 5)

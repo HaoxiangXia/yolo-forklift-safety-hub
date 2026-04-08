@@ -61,12 +61,21 @@
                 <span class="alarm-device">{{ alarm.device_id }}</span>
                 <span class="alarm-time">{{ formatAlarmTime(alarm.timestamp) }}</span>
               </div>
+              <div class="alarm-summary">
+                <span class="alarm-result-badge" :class="getAlarmResultClass(alarm)">
+                  {{ getAlarmResultText(alarm) }}
+                </span>
+                <span class="alarm-reason">{{ getAlarmReason(alarm) }}</span>
+              </div>
               <div class="alarm-item-body">
                 <span class="alarm-zone" v-if="alarm.zone">{{ alarm.zone }}</span>
                 <img v-if="alarm.image_path" :src="'/images/' + alarm.image_path" class="alarm-thumb" alt="报警图片" @error="handleImageError" />
                 <span v-if="!alarm.image_path" class="alarm-no-image">无图片</span>
                 <span class="alarm-duration">{{ getAlarmDuration(alarm) }}</span>
               </div>
+              <p class="alarm-analysis" :class="{ pending: isAnalysisPending(alarm), failed: isAnalysisFailed(alarm) }">
+                {{ getAnalysisText(alarm) }}
+              </p>
             </div>
             <div v-if="alarmList.length === 0" class="alarm-empty">
               <span class="empty-icon">&#10003;</span>
@@ -87,6 +96,26 @@
         <div class="modal-body image-modal-body">
           <img v-if="selectedAlarm?.image_path" :src="'/images/' + selectedAlarm.image_path" class="alarm-full-image" alt="告警图片" />
           <div v-else class="no-image">暂无图片</div>
+          <div class="alarm-detail-panel" v-if="selectedAlarm">
+            <div class="alarm-detail-row">
+              <span class="detail-label">报警结果</span>
+              <span class="detail-value">
+                <span class="alarm-result-badge" :class="getAlarmResultClass(selectedAlarm)">
+                  {{ getAlarmResultText(selectedAlarm) }}
+                </span>
+              </span>
+            </div>
+            <div class="alarm-detail-row">
+              <span class="detail-label">报警原因</span>
+              <span class="detail-value">{{ getAlarmReason(selectedAlarm) }}</span>
+            </div>
+            <div class="alarm-detail-row">
+              <span class="detail-label">AI分析</span>
+              <p class="detail-analysis" :class="{ pending: isAnalysisPending(selectedAlarm), failed: isAnalysisFailed(selectedAlarm) }">
+                {{ getAnalysisText(selectedAlarm) }}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -240,15 +269,41 @@ function getAlarmDuration(alarm) {
   return `持续 ${hours}小时${mins}分`
 }
 
+function getAlarmResultText(alarm) {
+  return alarm?.alarm === 1 ? '已报警' : '已恢复'
+}
+
+function getAlarmResultClass(alarm) {
+  return alarm?.alarm === 1 ? 'is-alarm' : 'is-normal'
+}
+
+function getAlarmReason(_alarm) {
+  return '人离叉车过近'
+}
+
+function isAnalysisPending(alarm) {
+  return alarm?.description_status === 'pending'
+}
+
+function isAnalysisFailed(alarm) {
+  return alarm?.description_status === 'failed'
+}
+
+function getAnalysisText(alarm) {
+  if (!alarm) return '暂无分析'
+  if (alarm.description) return alarm.description
+  if (isAnalysisPending(alarm)) return 'AI 正在分析报警图片...'
+  if (isAnalysisFailed(alarm)) return 'AI 分析失败，请稍后重试'
+  return 'AI 分析结果暂未生成'
+}
+
 function handleImageError(e) {
   e.target.style.display = 'none'
 }
 
 function showAlarmImage(alarm) {
-  if (alarm.image_path) {
-    selectedAlarm.value = alarm
-    showImageModal.value = true
-  }
+  selectedAlarm.value = alarm
+  showImageModal.value = true
 }
 
 let socket = null
@@ -605,6 +660,14 @@ onMounted(() => {
   margin-bottom: 10px;
 }
 
+.alarm-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
 .alarm-status-dot {
   width: 8px;
   height: 8px;
@@ -642,6 +705,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 10px;
 }
 
 .alarm-thumb {
@@ -667,12 +731,62 @@ onMounted(() => {
   font-size: 11px;
   color: #b8a9e8;
   font-weight: 500;
+  margin-left: auto;
 }
 
 .alarm-no-image {
   font-size: 11px;
   color: #a0a0b0;
   font-style: italic;
+}
+
+.alarm-result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.alarm-result-badge.is-alarm {
+  color: #9f1f1f;
+  background: rgba(240, 160, 160, 0.26);
+  border: 1px solid rgba(208, 64, 64, 0.18);
+}
+
+.alarm-result-badge.is-normal {
+  color: #2c7051;
+  background: rgba(168, 230, 207, 0.26);
+  border: 1px solid rgba(62, 150, 103, 0.18);
+}
+
+.alarm-reason {
+  font-size: 12px;
+  color: #5c5678;
+  font-weight: 600;
+}
+
+.alarm-analysis {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6d6787;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.alarm-analysis.pending {
+  color: #8a8aa8;
+}
+
+.alarm-analysis.failed {
+  color: #b55353;
 }
 
 .alarm-empty {
@@ -781,6 +895,52 @@ onMounted(() => {
 .no-image {
   color: #8a8aa8;
   padding: 40px;
+}
+
+.alarm-detail-panel {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.alarm-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a8aa8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #3a3550;
+}
+
+.detail-analysis {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #4f4a68;
+}
+
+.detail-analysis.pending {
+  color: #8a8aa8;
+}
+
+.detail-analysis.failed {
+  color: #b55353;
 }
 
 /* Responsive */

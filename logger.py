@@ -19,6 +19,7 @@ except ImportError:
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "ops.log")
+READABLE_LOG_FILE = os.path.join(LOG_DIR, "readable.log")
 
 # =========================
 # logger 对象
@@ -29,6 +30,34 @@ file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
 formatter = logging.Formatter('%(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
+
+
+def append_readable_log(ts, level, event, category, module, message, device_id=None,
+                        request_id=None, sid=None, topic=None, error=None, extra=None):
+    """追加一份便于直接阅读的纯文本日志。"""
+    parts = [
+        f"[{ts}]",
+        level,
+        f"{category}/{module}",
+        event,
+    ]
+    if device_id:
+        parts.append(f"device={device_id}")
+    if request_id:
+        parts.append(f"request_id={request_id}")
+    if sid:
+        parts.append(f"sid={sid}")
+    if topic:
+        parts.append(f"topic={topic}")
+
+    line = " | ".join(parts) + f" | {message}"
+    if error:
+        line += f" | error={error}"
+    if extra:
+        line += f" | extra={json.dumps(extra, ensure_ascii=False, sort_keys=True)}"
+
+    with open(READABLE_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 # =========================
 # Biz 日志入库
@@ -191,6 +220,20 @@ def log_event(level, event, category, module, message, device_id=None, request_i
 
     # 写到日志文件
     getattr(logger, level.lower(), logger.info)(json.dumps(log_data, ensure_ascii=False))
+    append_readable_log(
+        ts,
+        level,
+        event,
+        category,
+        module,
+        message,
+        device_id=device_id,
+        request_id=request_id,
+        sid=sid,
+        topic=topic,
+        error=error,
+        extra=extra,
+    )
 
     # 所有分类日志都写入 SQLite（ops/biz/sec）
     save_log(ts, level, event, category, device_id, message, extra)
