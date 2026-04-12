@@ -27,9 +27,11 @@ def _get_str(name, default=""):
 # ==============================
 # MQTT 连接配置
 # ==============================
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
-MQTT_TOPIC = "factory/forklift/+/alarm"
+MQTT_BROKER = _get_str("MQTT_BROKER", "localhost")
+MQTT_PORT = _get_int("MQTT_PORT", 1883)
+MQTT_TOPIC = _get_str("MQTT_TOPIC", "factory/forklift/+/alarm")
+# 开发环境默认允许 MQTT 不可用时继续启动 Web，便于纯前端/接口联调。
+MQTT_REQUIRED = _get_bool("MQTT_REQUIRED", False)
 
 # ==============================
 # 数据库配置

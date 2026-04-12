@@ -81,7 +81,7 @@ def on_message(client, userdata, msg):
     except Exception as e:
         log_event("ERROR", "mqtt.message.parse_failed", "ops", "mqtt", "Failed to process MQTT message", topic=msg.topic, error=str(e))
 
-def start_mqtt():
+def start_mqtt(required=True):
     """初始化并启动 MQTT 客户端"""
     client = mqtt.Client()
     client.on_connect = on_connect
@@ -93,7 +93,22 @@ def start_mqtt():
         log_event("INFO", "mqtt.client.started", "ops", "mqtt", "MQTT client started successfully", extra={"broker": MQTT_BROKER, "port": MQTT_PORT})
         return client
     except Exception as e:
-        # 启动阶段必须失败即退出，避免服务看似可用但实际上没有消费任何 MQTT 消息。
-        log_event("CRITICAL", "mqtt.client.start_failed", "ops", "mqtt", "MQTT client failed to start", extra={"broker": MQTT_BROKER, "port": MQTT_PORT}, error=str(e))
-        print(traceback.format_exc())
-        raise
+        level = "CRITICAL" if required else "WARNING"
+        message = (
+            "MQTT client failed to start"
+            if required
+            else "MQTT client unavailable, continuing without MQTT subscription"
+        )
+        log_event(
+            level,
+            "mqtt.client.start_failed",
+            "ops",
+            "mqtt",
+            message,
+            extra={"broker": MQTT_BROKER, "port": MQTT_PORT, "required": required},
+            error=str(e),
+        )
+        if required:
+            print(traceback.format_exc())
+            raise
+        return None

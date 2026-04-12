@@ -86,7 +86,12 @@ MQTT Broker -> mqtt_client.py -> db.py (SQLite) -> SocketIO -> Vue SPA Frontend
 > **重要：始终使用 `venv` 虚拟环境运行 Python 命令！**
 
 ### 1. 准备 MQTT Broker
-请先安装并启动 MQTT Broker（例如 Mosquitto）。
+建议先安装并启动 MQTT Broker（例如 Mosquitto）。
+
+说明：
+- 从 2026-04-08 起，`python app.py` 在默认配置下即使连不上 MQTT 也会继续启动网页，便于他人先查看页面和基础接口。
+- 如果你希望在启动时强制要求 MQTT 可用，可设置环境变量 `MQTT_REQUIRED=true`。
+- 未连接 MQTT 时，实时报警消费与设备上报不会生效，但页面仍可访问。
 
 ### 2. 安装依赖
 ```bash
@@ -113,6 +118,14 @@ python app.py
 - 监控页面：http://localhost:5000/
 - 设备列表：http://localhost:5000/devices
 - 日志查询：http://localhost:5000/logs
+
+如果页面返回 404，请先确认已完成前端构建：
+```bash
+cd vue-app
+npm install
+npm run build
+cd ..
+```
 
 ### 5. 启动模拟设备上报（可选）
 ```bash
@@ -210,6 +223,7 @@ Socket.IO 连接需在 auth  payload 或 query 参数中携带 `token`。
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "factory/forklift/+/alarm"
+MQTT_REQUIRED = False
 OFFLINE_CHECK_INTERVAL_SEC = 5
 OFFLINE_TIMEOUT_SEC = 10
 AUTH_ENABLED = False

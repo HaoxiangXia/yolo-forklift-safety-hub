@@ -1,5 +1,7 @@
 # 缓存
 __pycache__/
+.DS_Store
+.local-node/
 
 # uv 虚拟环境
 .venv/

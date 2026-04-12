@@ -14,6 +14,8 @@ import subprocess
 import sys
 import threading
 import time
+import socket
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -23,10 +25,14 @@ class ProcessPairRunner:
     def __init__(self) -> None:
         self.processes: list[tuple[str, subprocess.Popen[str]]] = []
 
-    def start(self, name: str, script: str) -> None:
+    def start(self, name: str, script: str, extra_env: dict[str, str] | None = None) -> None:
+        env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
         process = subprocess.Popen(
             [sys.executable, script],
             cwd=ROOT,
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -75,17 +81,29 @@ class ProcessPairRunner:
             return 0
 
 
+def find_available_port(host: str = "127.0.0.1") -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
 def main() -> int:
     for required in ("app.py", "publish_test.py"):
         if not (ROOT / required).exists():
             print(f"未找到文件：{required}")
             return 1
 
-    runner = ProcessPairRunner()
-    runner.start("APP", "app.py")
-    runner.start("PUBLISH", "publish_test.py")
+    app_host = "127.0.0.1"
+    app_port = find_available_port(app_host)
+    server_base_url = f"http://localhost:{app_port}"
 
-    print("已启动 app.py 和 publish_test.py，按 Ctrl + C 结束。")
+    runner = ProcessPairRunner()
+    runner.start("APP", "app.py", {"APP_HOST": app_host, "APP_PORT": str(app_port)})
+    runner.start("PUBLISH", "publish_test.py", {"SERVER_BASE_URL": server_base_url})
+
+    print(
+        f"已启动 app.py 和 publish_test.py，服务地址 {server_base_url}，按 Ctrl + C 结束。"
+    )
     code = runner.monitor()
     runner.stop_all()
     return code
