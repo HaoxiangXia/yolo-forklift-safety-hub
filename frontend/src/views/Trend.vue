@@ -41,12 +41,14 @@
         </div>
 
         <!-- 图表 -->
-        <LineChart
-          :series="chartSeries"
-          :labels="chartLabels"
-          :height="'320px'"
-          :options="chartOptions"
-        />
+        <div class="chart-panel glass-inner">
+          <LineChart
+            :series="chartSeries"
+            :labels="chartLabels"
+            :height="'360px'"
+            :options="chartOptions"
+          />
+        </div>
 
       </div>
 
@@ -166,6 +168,29 @@ onMounted(fetchData)
   padding: 28px 32px;
 }
 
+.glass {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 8px 32px rgba(140, 120, 180, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.glass-inner {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1)),
+    rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 10px 24px rgba(140, 120, 180, 0.08);
+}
+
 /* 🔹 统计磁贴 */
 .stats-cards {
   display: flex;
@@ -181,6 +206,10 @@ onMounted(fetchData)
   padding: 16px;
   text-align: center;
   transition: transform 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    0 8px 24px rgba(140, 120, 180, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .stats-cards .card:hover {
@@ -203,11 +232,42 @@ onMounted(fetchData)
 .trend-card {
   padding: 20px;
   animation: fade-in 0.6s ease;
+  border-radius: 24px;
+}
+
+.trend-card:hover {
+  box-shadow:
+    0 16px 48px rgba(140, 120, 180, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3a3550;
+  letter-spacing: 0.01em;
+}
+
+.card-meta {
+  font-size: 11px;
+  color: #8a8aa8;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
 }
 
 /* 控制区 */
@@ -236,5 +296,11 @@ onMounted(fetchData)
 .tabs button.active {
   background: rgba(184,169,232,0.45);
   color: #3a3550;
+}
+
+.chart-panel {
+  border-radius: 22px;
+  padding: 18px 18px 10px;
+  min-height: 400px;
 }
 </style>

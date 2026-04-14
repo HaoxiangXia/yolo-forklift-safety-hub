@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from backend.paths import FRONTEND_ASSETS_DIR, FRONTEND_DIST_DIR, ROOT_DIR, STATIC_DIR
+from backend.paths import FRONTEND_ASSETS_DIR, FRONTEND_DIST_DIR, FRONTEND_PUBLIC_DIR, ROOT_DIR, STATIC_DIR
 from backend.services import app_service
 
 router = APIRouter()
@@ -119,6 +119,14 @@ async def serve_image(file_path: str):
 @router.get("/Dashboard.png")
 async def serve_dashboard_png():
     return FileResponse(ROOT_DIR / "map.jpg")
+
+
+@router.get("/logo.png")
+async def serve_logo_png():
+    logo = FRONTEND_PUBLIC_DIR / "logo.png"
+    if not logo.is_file():
+        raise HTTPException(status_code=404, detail="logo.png not found")
+    return FileResponse(logo)
 
 
 @router.get("/map.jpg")

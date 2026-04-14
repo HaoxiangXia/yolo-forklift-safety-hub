@@ -24,3 +24,4 @@ def resolve_frontend_dist() -> Path:
 
 FRONTEND_DIST_DIR = resolve_frontend_dist()
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
+FRONTEND_PUBLIC_DIR = ROOT_DIR / "frontend" / "public"

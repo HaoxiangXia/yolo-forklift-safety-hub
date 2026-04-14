@@ -23,6 +23,14 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  enableDataZoom: {
+    type: Boolean,
+    default: true,
+  },
+  options: {
+    type: Object,
+    default: () => ({}),
+  },
 })
 
 const chartRef = ref(null)
@@ -36,7 +44,26 @@ const defaultColors = [
 function renderChart() {
   if (!chartInstance) return
 
-  chartInstance.setOption({
+  const defaultDataZoom = [
+    {
+      type: 'inside',
+      start: 80,
+      end: 100,
+      zoomLock: false,
+    },
+    {
+      type: 'slider',
+      height: 20,
+      bottom: 0,
+      handleIcon: 'M8.2,13.3h-1.6v-2.6h1.6V13.3z',
+      handleSize: '120%',
+      start: 80,
+      end: 100,
+      showDetail: false,
+    }
+  ]
+
+  const baseOption = {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
@@ -58,7 +85,12 @@ function renderChart() {
           itemHeight: 3,
         }
       : undefined,
-    grid: { left: 36, right: 16, bottom: 28, top: props.showLegend ? 36 : 16 },
+    grid: {
+      left: 36,
+      right: 16,
+      bottom: props.enableDataZoom ? 28 : 16,
+      top: props.showLegend ? 36 : 16,
+    },
     xAxis: {
       type: 'category',
       boundaryGap: false,
@@ -93,26 +125,16 @@ function renderChart() {
         },
       }
     }),
-    // 🔹 新增 DataZoom 缩放功能
-    dataZoom: [
-      {
-        type: 'inside', // 鼠标滚轮 / 手势缩放
-        start: 80,       // 默认显示最后 20%
-        end: 100,
-        zoomLock: false,
-      },
-      {
-        type: 'slider',  // 底部滑动条
-        height: 20,
-        bottom: 0,
-        handleIcon:
-          'M8.2,13.3h-1.6v-2.6h1.6V13.3z', // 简洁手柄
-        handleSize: '120%',
-        start: 80,
-        end: 100,
-        showDetail: false, // 隐藏阴影
-      }
-    ]
+    dataZoom: props.enableDataZoom ? defaultDataZoom : [],
+  }
+
+  chartInstance.setOption({
+    ...baseOption,
+    ...props.options,
+    grid: {
+      ...baseOption.grid,
+      ...(props.options?.grid || {}),
+    },
   })
 }
 
@@ -129,7 +151,11 @@ onMounted(() => {
   })
 })
 
-watch(() => props.series, renderChart, { deep: true })
+watch(
+  () => [props.series, props.labels, props.showLegend, props.enableDataZoom, props.options],
+  renderChart,
+  { deep: true }
+)
 </script>
 
 <style scoped>

@@ -129,6 +129,9 @@ class WorkerManager:
             try:
                 await asyncio.sleep(POSITION_UPDATE_INTERVAL_SEC)
                 devices = repo.get_all_devices_with_positions()
+                if POSITION_MOVE_RANGE <= 0:
+                    await self.sio.emit("position_update", devices)
+                    continue
                 for dev in devices:
                     if dev.get("online_status") != 1:
                         continue

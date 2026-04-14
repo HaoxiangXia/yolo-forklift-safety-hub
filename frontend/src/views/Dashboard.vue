@@ -45,7 +45,7 @@
               <h3 class="card-title">报警次数趋势</h3>
               <span class="card-tag">24小时</span>
             </div>
-            <LineChart :series="chartSeries" :labels="chartLabels" :height="'180px'" />
+            <LineChart :series="chartSeries" :labels="chartLabels" :height="'180px'" :enable-data-zoom="false" />
           </div>
         </div>
 
@@ -164,7 +164,7 @@ const C = {
   text: '#5c5678',
   textSec: '#9890b0',
   purple: '#b8a9e8',
-  green: '#D0F578',
+  green: '#a8e6cf',
   red: '#f0a0a0',
   offline: '#b0a8c8',
 }
@@ -448,10 +448,6 @@ onMounted(() => {
   initData()
 
   socket = io({ auth: { token: getAuthToken() } })
-  socket.on('position_update', data => {
-    devices.value = data || []
-    updateMap()
-  })
   socket.on('device_update', () => {
     initData()
     fetchAlarmTrend()
@@ -483,6 +479,8 @@ onMounted(() => {
 .dashboard {
   min-height: 100vh;
   position: relative;
+  --dashboard-content-padding-y: 56px;
+  --dashboard-sidebar-footer-zone: 152px;
 }
 
 .main-content {
@@ -724,7 +722,9 @@ onMounted(() => {
   grid-area: alarm;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 140px);
+  align-self: start;
+  height: calc(100vh - var(--dashboard-content-padding-y) - var(--dashboard-sidebar-footer-zone));
+  max-height: calc(100vh - var(--dashboard-content-padding-y) - var(--dashboard-sidebar-footer-zone));
 }
 
 .alarm-list {
@@ -1120,6 +1120,7 @@ onMounted(() => {
   }
 
   .alarm-card {
+    height: auto;
     max-height: 400px;
   }
 }
