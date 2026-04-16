@@ -19,7 +19,9 @@ vue-app/dist/
 *.log
 
 # 报警图片
-images/alarms
+images/alarms/*
+!images/alarms/FORK-003_20260408_003836.png
+!images/alarms/MANUAL-TEST_20260408_002811.png
 
 ignore/
 .kilo
