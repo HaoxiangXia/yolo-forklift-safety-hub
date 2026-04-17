@@ -105,6 +105,10 @@
           <div v-else class="no-image">暂无图片</div>
           <div class="alarm-detail-panel" v-if="selectedAlarm">
             <div class="alarm-detail-row">
+              <span class="detail-label">事件时间</span>
+              <span class="detail-value">{{ formatAbsoluteTime(selectedAlarm.timestamp) }}</span>
+            </div>
+            <div class="alarm-detail-row">
               <span class="detail-label">报警结果</span>
               <span class="detail-value">
                 <span class="alarm-result-badge" :class="getAlarmResultClass(selectedAlarm)">
@@ -116,11 +120,24 @@
               <span class="detail-label">报警原因</span>
               <span class="detail-value">{{ getAlarmReason(selectedAlarm) }}</span>
             </div>
+            <div class="alarm-detail-row is-block">
+              <span class="detail-label">风险说明</span>
+              <p class="detail-analysis">{{ getRiskDescription(selectedAlarm) }}</p>
+            </div>
             <div class="alarm-detail-row">
               <span class="detail-label">AI分析</span>
               <p class="detail-analysis" :class="{ pending: isAnalysisPending(selectedAlarm), failed: isAnalysisFailed(selectedAlarm) }">
                 {{ getAnalysisText(selectedAlarm) }}
               </p>
+            </div>
+            <div class="alarm-detail-row is-block">
+              <span class="detail-label">操作入口</span>
+              <div class="detail-actions">
+                <button type="button" class="detail-action-btn" @click="triggerAlarmAction('已标记为待跟进，后续可接真实处置流。')">标记已跟进</button>
+                <button type="button" class="detail-action-btn" @click="triggerAlarmAction('已预留通知入口，后续可接短信或企业微信。')">通知负责人</button>
+                <button type="button" class="detail-action-btn" @click="triggerAlarmAction('已预留复盘入口，当前先作为 UI 占位按钮。')">发起复盘</button>
+              </div>
+              <p v-if="alarmActionFeedback" class="detail-action-feedback">{{ alarmActionFeedback }}</p>
             </div>
           </div>
         </div>
@@ -151,6 +168,7 @@ const chartSeries = ref([])
 
 const showImageModal = ref(false)
 const selectedAlarm = ref(null)
+const alarmActionFeedback = ref('')
 const DASHBOARD_MAP_URL = '/Dashboard.png'
 
 let mapChartInstance = null
@@ -344,6 +362,12 @@ function getAlarmReason(_alarm) {
   return '人离叉车过近'
 }
 
+function getRiskDescription(alarm) {
+  if (!alarm) return '暂无风险说明'
+  const zone = alarm.zone || '未知区域'
+  return `${zone}出现人车距离过近告警，建议优先核查现场视线遮挡、人员停留和叉车减速执行情况。`
+}
+
 function isAnalysisPending(alarm) {
   return alarm?.description_status === 'pending'
 }
@@ -360,6 +384,11 @@ function getAnalysisText(alarm) {
   return 'AI 分析结果暂未生成'
 }
 
+function formatAbsoluteTime(timestamp) {
+  if (!timestamp) return '-'
+  return timestamp.replace('T', ' ')
+}
+
 function handleImageError(e) {
   e.target.style.display = 'none'
 }
@@ -367,6 +396,11 @@ function handleImageError(e) {
 function showAlarmImage(alarm) {
   selectedAlarm.value = alarm
   showImageModal.value = true
+  alarmActionFeedback.value = ''
+}
+
+function triggerAlarmAction(message) {
+  alarmActionFeedback.value = message
 }
 
 let socket = null
@@ -1039,6 +1073,11 @@ onMounted(() => {
   gap: 8px;
 }
 
+.alarm-detail-row.is-block {
+  padding-top: 4px;
+  border-top: 1px solid rgba(184, 169, 232, 0.18);
+}
+
 .detail-label {
   font-size: 11px;
   font-weight: 700;
@@ -1065,6 +1104,35 @@ onMounted(() => {
 
 .detail-analysis.failed {
   color: #b55353;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.detail-action-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(240, 160, 160, 0.18);
+  color: #9f1f1f;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.detail-action-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(240, 160, 160, 0.3);
+}
+
+.detail-action-feedback {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #6d6787;
 }
 
 /* Responsive */
