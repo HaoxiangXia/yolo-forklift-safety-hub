@@ -27,11 +27,9 @@ def _get_str(name, default=""):
 # ==============================
 # MQTT 连接配置
 # ==============================
-MQTT_BROKER = _get_str("MQTT_BROKER", "localhost")
-MQTT_PORT = _get_int("MQTT_PORT", 1883)
-MQTT_TOPIC = _get_str("MQTT_TOPIC", "factory/forklift/+/alarm")
-# 开发环境默认允许 MQTT 不可用时继续启动 Web，便于纯前端/接口联调。
-MQTT_REQUIRED = _get_bool("MQTT_REQUIRED", False)
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+MQTT_TOPIC = "factory/forklift/+/alarm"
 
 # ==============================
 # 数据库配置
@@ -51,8 +49,8 @@ AUTH_ENABLED = False
 # ==============================
 # 设备离线检测配置
 # ==============================
-OFFLINE_CHECK_INTERVAL_SEC = _get_int("OFFLINE_CHECK_INTERVAL_SEC", 5)
-OFFLINE_TIMEOUT_SEC = _get_int("OFFLINE_TIMEOUT_SEC", 10)
+OFFLINE_CHECK_INTERVAL_SEC = 5
+OFFLINE_TIMEOUT_SEC = 10
 
 # ==============================
 # 历史/趋势查询配置
@@ -63,8 +61,8 @@ TREND_LIMIT = 20
 # ==============================
 # 设备位置模拟配置（仅用于测试）
 # ==============================
-POSITION_UPDATE_INTERVAL_SEC = _get_int("POSITION_UPDATE_INTERVAL_SEC", 5)
-POSITION_MOVE_RANGE = _get_int("POSITION_MOVE_RANGE", 20)
+POSITION_UPDATE_INTERVAL_SEC = 5
+POSITION_MOVE_RANGE = 20
 
 # ==============================
 # 图片上传配置

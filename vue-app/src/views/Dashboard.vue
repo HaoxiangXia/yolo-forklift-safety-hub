@@ -66,7 +66,7 @@
               <h3 class="card-title">报警次数趋势</h3>
               <span class="card-tag">24小时</span>
             </div>
-            <LineChart :series="chartSeries" :labels="chartLabels" :height="'180px'" :enable-data-zoom="false" />
+            <LineChart :series="chartSeries" :labels="chartLabels" :height="'180px'" />
           </div>
         </div>
 
