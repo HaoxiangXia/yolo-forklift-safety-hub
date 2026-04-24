@@ -19,7 +19,6 @@ from datetime import datetime
 import sys
 import os
 import requests
-from urllib.parse import urljoin
 
 # 添加父目录到路径，以便导入 db 和 config
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,8 +33,7 @@ MQTT_PORT = 1883
 DEVICES = ["FORK-001", "FORK-002", "FORK-003"]
 
 # 图片上传配置（批量）
-SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://localhost:5000").rstrip("/") + "/"
-UPLOAD_URL = urljoin(SERVER_BASE_URL, "api/upload-image")
+UPLOAD_URL = "http://localhost:5000/api/upload-image"
 IMAGE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "images", "alarms", "bqb.jpg"
 )

@@ -150,6 +150,30 @@ def init_db():
         ON alarm_images(device_id, image_path)
     """)
 
+    # 场景报警表（人车接近、叉车碰撞等）
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS scene_alarms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level INTEGER,
+            danger_type TEXT,
+            forklift_id INTEGER,
+            person_id INTEGER,
+            forklift2_id INTEGER,
+            forklift_x REAL,
+            forklift_y REAL,
+            forklift2_x REAL,
+            forklift2_y REAL,
+            person_x REAL,
+            person_y REAL,
+            distance REAL,
+            alarm_category TEXT,
+            timestamp TEXT,
+            end_time TEXT,
+            duration_sec REAL,
+            status INTEGER DEFAULT 0
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -494,118 +518,6 @@ def get_alarm_hourly_today_yesterday():
     }
 
 
-def get_alarm_trend_multi_device(range_type, device_ids):
-    """
-    多设备趋势聚合（alarm=1 次数）：
-    - day: 当天 0-23 点
-    - week: 最近 7 天（含今天）
-    - month: 最近 30 天（含今天）
-
-    返回：
-      {
-        "labels": [...],
-        "series": { "<device_id>": [..counts..], ... }
-      }
-    """
-    if not device_ids:
-        return {"labels": [], "series": {}}
-
-    range_type = (range_type or "day").lower()
-    if range_type not in ("day", "week", "month"):
-        range_type = "day"
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    placeholders = ",".join(["?"] * len(device_ids))
-    series = {device_id: [] for device_id in device_ids}
-
-    if range_type == "day":
-        labels = [f"{h}:00" for h in range(24)]
-        for device_id in device_ids:
-            series[device_id] = [0 for _ in range(24)]
-
-        cursor.execute(
-            f"""
-            SELECT
-                device_id,
-                strftime('%H', timestamp) AS hour,
-                COUNT(*) AS alarm_count
-            FROM alarms
-            WHERE alarm = 1
-              AND device_id IN ({placeholders})
-              AND date(timestamp) = date('now', 'localtime')
-            GROUP BY device_id, hour
-            ORDER BY device_id, hour ASC
-        """,
-            tuple(device_ids),
-        )
-        rows = cursor.fetchall()
-        for row in rows:
-            device_id = row["device_id"]
-            if device_id not in series:
-                continue
-            try:
-                hour_idx = int(row["hour"])
-            except (TypeError, ValueError):
-                continue
-            if 0 <= hour_idx <= 23:
-                series[device_id][hour_idx] = int(row["alarm_count"] or 0)
-
-        conn.close()
-        return {"labels": labels, "series": series}
-
-    if range_type == "week":
-        days = 7
-    else:
-        days = 30
-
-    # 最近 N 天（含今天）
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=days - 1)
-    date_keys = [
-        (start_date + timedelta(days=offset)).strftime("%Y-%m-%d")
-        for offset in range(days)
-    ]
-    labels = [
-        (start_date + timedelta(days=offset)).strftime("%m-%d") for offset in range(days)
-    ]
-
-    for device_id in device_ids:
-        series[device_id] = [0 for _ in range(days)]
-
-    cursor.execute(
-        f"""
-        SELECT
-            device_id,
-            date(timestamp) AS day,
-            COUNT(*) AS alarm_count
-        FROM alarms
-        WHERE alarm = 1
-          AND device_id IN ({placeholders})
-          AND date(timestamp) >= ?
-        GROUP BY device_id, day
-        ORDER BY device_id, day ASC
-    """,
-        tuple(device_ids) + (start_date.strftime("%Y-%m-%d"),),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-
-    index_by_day = {d: i for i, d in enumerate(date_keys)}
-    for row in rows:
-        device_id = row["device_id"]
-        if device_id not in series:
-            continue
-        day = row["day"]
-        idx = index_by_day.get(day)
-        if idx is None:
-            continue
-        series[device_id][idx] = int(row["alarm_count"] or 0)
-
-    return {"labels": labels, "series": series}
-
-
 def save_alarm_image(device_id, image_path, timestamp):
     """保存报警图片记录到数据库"""
     conn = get_db_connection()
@@ -831,7 +743,7 @@ def get_recent_alarms(limit=5):
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT a.id, a.device_id, a.timestamp, a.alarm,
+        SELECT a.device_id, a.timestamp, a.alarm,
                (SELECT image_path FROM alarm_images ai
                 WHERE ai.device_id = a.device_id
                 ORDER BY ai.timestamp DESC LIMIT 1) as image_path,
@@ -922,3 +834,62 @@ def get_alarm_duration_stats(device_id):
         "max_duration": 0,
         "total_duration": 0,
     }
+
+
+def save_scene_alarm(level, danger_type, forklift_id, person_id=None, forklift2_id=None, forklift_x=None, forklift_y=None, forklift2_x=None, forklift2_y=None, person_x=None, person_y=None, distance=None, alarm_category=None):
+    """保存场景报警记录"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        """
+        INSERT INTO scene_alarms (
+            level, danger_type, forklift_id, person_id, forklift2_id,
+            forklift_x, forklift_y, forklift2_x, forklift2_y, person_x, person_y,
+            distance, alarm_category, timestamp, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    """,
+        (
+            level, danger_type, forklift_id, person_id, forklift2_id,
+            forklift_x, forklift_y, forklift2_x, forklift2_y, person_x, person_y,
+            distance, alarm_category, now_str
+        ),
+    )
+    alarm_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return alarm_id
+
+
+def end_scene_alarm(alarm_id):
+    """结束场景报警记录"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        """
+        UPDATE scene_alarms
+        SET end_time = ?, status = 1
+        WHERE id = ?
+    """,
+        (now_str, alarm_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_recent_scene_alarms(limit=10):
+    """获取最近的场景报警记录"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT * FROM scene_alarms
+        ORDER BY timestamp DESC
+        LIMIT ?
+    """,
+        (limit,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

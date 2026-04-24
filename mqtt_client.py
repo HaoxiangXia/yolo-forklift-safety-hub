@@ -10,11 +10,18 @@ from config import MQTT_BROKER, MQTT_PORT, MQTT_TOPIC
 
 # 全局 SocketIO 实例引用
 socketio_inst = None
+# 全局场景管理器引用
+scene_manager_inst = None
 
 def set_socketio(sio):
     """设置 SocketIO 实例，用于推送消息"""
     global socketio_inst
     socketio_inst = sio
+
+def set_scene_manager(sm):
+    """设置场景管理器实例"""
+    global scene_manager_inst
+    scene_manager_inst = sm
 
 def on_connect(client, userdata, flags, rc):
     """连接成功回调函数"""
@@ -81,7 +88,7 @@ def on_message(client, userdata, msg):
     except Exception as e:
         log_event("ERROR", "mqtt.message.parse_failed", "ops", "mqtt", "Failed to process MQTT message", topic=msg.topic, error=str(e))
 
-def start_mqtt(required=True):
+def start_mqtt():
     """初始化并启动 MQTT 客户端"""
     client = mqtt.Client()
     client.on_connect = on_connect
@@ -93,22 +100,7 @@ def start_mqtt(required=True):
         log_event("INFO", "mqtt.client.started", "ops", "mqtt", "MQTT client started successfully", extra={"broker": MQTT_BROKER, "port": MQTT_PORT})
         return client
     except Exception as e:
-        level = "CRITICAL" if required else "WARNING"
-        message = (
-            "MQTT client failed to start"
-            if required
-            else "MQTT client unavailable, continuing without MQTT subscription"
-        )
-        log_event(
-            level,
-            "mqtt.client.start_failed",
-            "ops",
-            "mqtt",
-            message,
-            extra={"broker": MQTT_BROKER, "port": MQTT_PORT, "required": required},
-            error=str(e),
-        )
-        if required:
-            print(traceback.format_exc())
-            raise
-        return None
+        # 启动阶段必须失败即退出，避免服务看似可用但实际上没有消费任何 MQTT 消息。
+        log_event("CRITICAL", "mqtt.client.start_failed", "ops", "mqtt", "MQTT client failed to start", extra={"broker": MQTT_BROKER, "port": MQTT_PORT}, error=str(e))
+        print(traceback.format_exc())
+        raise
