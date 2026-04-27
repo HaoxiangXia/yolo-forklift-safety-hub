@@ -133,6 +133,8 @@ class WorkerManager:
                     await self.sio.emit("position_update", devices)
                     continue
                 for dev in devices:
+                    if dev.get("device_id", "").startswith("FORK-"):
+                        continue
                     if dev.get("online_status") != 1:
                         continue
                     pos_x = max(0, min(1920, (dev.get("pos_x") or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)))
