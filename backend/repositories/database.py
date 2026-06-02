@@ -653,7 +653,7 @@ def init_device_positions():
         if row and (row["pos_x"] is None or row["pos_x"] == 0):
             cursor.execute(
                 "UPDATE devices SET pos_x = ?, pos_y = ? WHERE device_id = ?",
-                (random.uniform(0, 1920), random.uniform(0, 1080), device_id),
+                (random.uniform(0, 1362), random.uniform(0, 768), device_id),
             )
     conn.commit()
     conn.close()

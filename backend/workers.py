@@ -135,8 +135,8 @@ class WorkerManager:
                 for dev in devices:
                     if dev.get("online_status") != 1:
                         continue
-                    pos_x = max(0, min(1920, (dev.get("pos_x") or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)))
-                    pos_y = max(0, min(1080, (dev.get("pos_y") or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)))
+                    pos_x = max(0, min(1362, (dev.get("pos_x") or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)))
+                    pos_y = max(0, min(768, (dev.get("pos_y") or 0) + random.uniform(-POSITION_MOVE_RANGE, POSITION_MOVE_RANGE)))
                     repo.update_device_position(dev["device_id"], pos_x, pos_y)
                 await self.sio.emit("position_update", repo.get_all_devices_with_positions())
             except asyncio.CancelledError:

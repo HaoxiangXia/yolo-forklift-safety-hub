@@ -76,7 +76,7 @@
               </div>
               <div class="alarm-item-body">
                 <span class="alarm-zone" v-if="alarm.zone">{{ alarm.zone }}</span>
-                <img v-if="alarm.image_path" :src="'/' + alarm.image_path" class="alarm-thumb" alt="报警图片" @error="handleImageError" />
+                <img v-if="alarm.image_path" :src="resolveAlarmImageSrc(alarm.image_path)" class="alarm-thumb" alt="报警图片" @error="handleImageError" />
                 <span v-if="!alarm.image_path" class="alarm-no-image">无图片</span>
                 <span class="alarm-duration">{{ getAlarmDuration(alarm) }}</span>
               </div>
@@ -101,7 +101,7 @@
           <button @click="showImageModal = false" class="modal-close" aria-label="关闭">&times;</button>
         </div>
         <div class="modal-body image-modal-body">
-          <img v-if="selectedAlarm?.image_path" :src="'/' + selectedAlarm.image_path" class="alarm-full-image" alt="告警图片" />
+          <img v-if="selectedAlarm?.image_path" :src="resolveAlarmImageSrc(selectedAlarm.image_path)" class="alarm-full-image" alt="告警图片" />
           <div v-else class="no-image">暂无图片</div>
           <div class="alarm-detail-panel" v-if="selectedAlarm">
             <div class="alarm-detail-row">
@@ -172,11 +172,11 @@ const alarmActionFeedback = ref('')
 const DASHBOARD_MAP_URL = '/Dashboard.png'
 
 let mapChartInstance = null
-const MAP_COORD_WIDTH = 1920
-const MAP_COORD_HEIGHT = 1080
-const MAP_MARKER_OUTER_SIZE = 42
-const MAP_MARKER_MIDDLE_SIZE = 32
-const MAP_MARKER_INNER_SIZE = 22
+const MAP_COORD_WIDTH = 1362
+const MAP_COORD_HEIGHT = 768
+const MAP_MARKER_OUTER_SIZE = 30
+const MAP_MARKER_MIDDLE_SIZE = 22
+const MAP_MARKER_INNER_SIZE = 16
 
 const C = {
   text: '#5c5678',
@@ -393,6 +393,14 @@ function handleImageError(e) {
   e.target.style.display = 'none'
 }
 
+function resolveAlarmImageSrc(imagePath) {
+  if (!imagePath) return ''
+  if (/^https?:\/\//i.test(imagePath) || imagePath.startsWith('/')) {
+    return imagePath
+  }
+  return `/${imagePath}`
+}
+
 function showAlarmImage(alarm) {
   selectedAlarm.value = alarm
   showImageModal.value = true
@@ -485,6 +493,12 @@ onMounted(() => {
   socket.on('device_update', () => {
     initData()
     fetchAlarmTrend()
+  })
+  socket.on('position_update', (payload) => {
+    if (!Array.isArray(payload)) return
+    const currentById = new Map(devices.value.map(dev => [dev.device_id, dev]))
+    devices.value = payload.map(dev => ({ ...(currentById.get(dev.device_id) || {}), ...dev }))
+    updateMap()
   })
 
   trendTimer = setInterval(() => {
