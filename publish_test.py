@@ -178,8 +178,8 @@ def simulate_position_update():
                     )
 
                     # 限制范围
-                    new_x = max(0, min(1920, new_x))
-                    new_y = max(0, min(1080, new_y))
+                    new_x = max(0, min(1362, new_x))
+                    new_y = max(0, min(768, new_y))
 
                     db.update_device_position(dev["device_id"], new_x, new_y)
                     print(

@@ -65,7 +65,7 @@ MQTT Broker -> backend/workers.py -> backend/services -> backend/repositories (S
 ├── logger.py                  # 统一日志记录（支持 ops/biz/sec 分类）
 ├── config.py                  # 系统配置（MQTT、离线阈值、鉴权、查询限制）
 ├── publish_test.py            # MQTT 设备模拟上报脚本
-├── run_test.py                # 一键联调脚本（同时启动 app + publish）
+├── edge_node_client.py        # 一键演示脚本（启动 app + 固定 4 幕仿真）
 ├── frontend/                  # Vue 3 前端项目
 │   ├── src/
 │   │   ├── views/
@@ -136,14 +136,15 @@ APP_HOST=127.0.0.1 APP_PORT=8765 uv run app.py
 uv run publish_test.py
 ```
 
-### 6. 一键联调（可选）
+### 6. 一键演示仿真（可选）
 ```bash
-uv run run_test.py
+uv run edge_node_client.py
 ```
 
 说明：
-- `run_test.py` 会自动选择一个空闲端口启动后端，并把地址传给 `publish_test.py`
-- 如果本机没有 MQTT Broker，后端仍可启动，但模拟上报会连接失败
+- `edge_node_client.py` 会自动选择一个空闲端口启动后端，并打开固定 4 幕演示剧本。
+- 演示剧本依次表现：通道区正常移动、进入装卸区、触发报警并带预设图片、行人远离后报警解除。
+- 如果本机没有 MQTT Broker，后端仍可启动；演示仿真不依赖 MQTT Broker。
 
 ### 7. 前端开发模式（可选）
 ```bash

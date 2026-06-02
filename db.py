@@ -789,8 +789,8 @@ def init_device_positions():
         row = cursor.fetchone()
         if row and (row["pos_x"] is None or row["pos_x"] == 0):
             # 随机生成位置
-            pos_x = random.uniform(0, 1920)
-            pos_y = random.uniform(0, 1080)
+            pos_x = random.uniform(0, 1362)
+            pos_y = random.uniform(0, 768)
             cursor.execute(
                 "UPDATE devices SET pos_x = ?, pos_y = ? WHERE device_id = ?",
                 (pos_x, pos_y, device_id),
